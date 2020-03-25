@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-"""
+r"""
 Notes from Chapter 1 of Hans Petter Langtangen's book "Finite Difference
 Computing with Exponential Decay Models".
 
@@ -13,7 +13,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-__all__ = ['forward_euler']
+__all__ = ['forward_euler', 'backward_euler', 'crank_nicolson', 'unifying']
 
 IMGDIR = './img/chap1/'
 """Path to store images."""
@@ -131,11 +131,12 @@ def forward_euler() -> None:
     dt = 0.8
     u, t = solver(I=I, a=a, T=T, dt=dt)
 
-    # Write out a table of t and u values:
+    # Write out a table of t and u values
     for idx, t_i in enumerate(t):
         print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
 
     # Plot with red dashes w/ circles
+    plt.figure()
     plt.plot(t, u, 'r--o', label='numerical')
 
     # Calculate exact solution
@@ -152,6 +153,270 @@ def forward_euler() -> None:
     plt.title('Forward Euler, dt={:g}'.format(dt))
     plt.legend()
     plt.savefig(IMGDIR + 'fe.png', bbox_inches='tight')
+
+
+def backward_euler() -> None:
+    r"""
+    Solve ODE (1) by the Backward Euler (BE) finite difference method.
+
+    Notes
+    ----------
+    There are several choices of difference approximations in step 3 of the
+    finite difference method presenting in `forward_euler`. Another alternative
+    is
+
+                      u'(tn) ≈ (uⁿ - uⁿ⁻¹) / (tn - t{n-1})
+
+    Since this difference is going backward in time (t{n-1}) for information,
+    it is known as a backward difference, also called Backward Euler
+    difference. Inserting our equation yields
+
+              (uⁿ - uⁿ⁻¹) / (tn - t{n-1}) = -a uⁿ,     n=1,...,N_t
+
+    For direct similarity to the Forward Euler scheme, we replace n by n+1 and
+    solve for the unknown value uⁿ⁺¹
+
+            uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ,     n=0,...,N_t-1
+
+    """
+    # Define solver function
+    def solver(I: float, a: float, T: float, dt: float):
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt using BE.
+
+        Parameters
+        ----------
+        I : Initial condition.
+        a : Constant coefficient.
+        T : Time to compute to.
+        dt : Step size.
+
+        Returns
+        ----------
+        u : Mesh function.
+        t : Mesh points.
+
+        """
+        # Initialise data structures
+        Nt = int(round(T / dt)) # Number of time intervals
+        u = np.zeros(Nt + 1)    # Mesh function
+        t = np.linspace(0, T, Nt + 1) # Mesh points
+
+        # Calculate mesh function using difference equation
+        # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
+        u[0] = I
+        for n_idx in range(Nt):
+            u[n_idx + 1] = 1 / (1 + a * dt) * u[n_idx]
+        return u, t
+
+    I = 1
+    a = 2
+    T = 8
+    dt = 0.8
+    u, t = solver(I=I, a=a, T=T, dt=dt)
+
+    # Write out a table of t and u values
+    for idx, t_i in enumerate(t):
+        print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
+
+    # Plot with red dashes w/ circles
+    plt.figure()
+    plt.plot(t, u, 'r--o', label='numerical')
+
+    # Calculate exact solution
+    u_exact = lambda t, I, a: I * np.exp(-a * t)
+    t_e = np.linspace(0, T, 1001)
+    u_e = u_exact(t_e, I, a)
+
+    # Plot with blue line
+    plt.plot(t_e, u_e, 'b-', label='exact')
+
+    # Save figure
+    plt.xlabel('t')
+    plt.ylabel('u')
+    plt.title('Backward Euler, dt={:g}'.format(dt))
+    plt.legend()
+    plt.savefig(IMGDIR + 'be.png', bbox_inches='tight')
+
+
+def crank_nicolson() -> None:
+    r"""
+    Solve ODE (1) by the Crank-Nicolson (CN) finite difference method.
+
+    Notes
+    ----------
+    The finite difference methods derived in `forward_euler` and
+    `backward_euler` are both one-sided differences. Such one-sided differences
+    are known to be less accurate than central (or midpoint) differences, where
+    we use information both forward and backward in time. A natural next step
+    is therefore to construct a central difference approximation.
+
+    The central difference approximation to the derivative is sought at the
+    point t{n+½} = ½(tn + t{n+1}). The approximation reads
+
+                    u'(t{n+½}) ≈ (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn)
+
+    With this formula, it is natural to demand the ODE be fulfilled at the time
+    points between the mesh points:
+
+                    u'(t{n+½}) = -a u(t{n+½}),     n=0,...,N_t-1
+
+    Combining these results results in the approximate discrete equation
+
+            (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a uⁿ⁺¹⸍²,     n=0,1,...,N_t-1
+
+    However, there is a fundamental problem with the right-hand side of the
+    equation. We aim to compute uⁿ for integer n, which means that uⁿ⁺¹⸍² is
+    not a quantity computed by our method. One possibility is to approximate
+    uⁿ⁺¹⸍² as an arithmetic mean of the u values at the neighbouring mesh
+    points
+
+                            uⁿ⁺¹⸍² ≈ ½(uⁿ + uⁿ⁺¹)
+
+    We then obtain the approximate discrete equation
+
+        (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a ½(uⁿ + uⁿ⁺¹),     n=0,1,...,N_t-1
+
+    There are three approximation steps leading to this formula. First, the ODE
+    is only valid at discrete points. Second, the derivative is approximated by
+    finite differences, and third, the value of u between mesh points is
+    approximated by an arithmetic mean value. Despite one more approximation
+    than for the Backward and Forward Euler schemes, the use of a centered
+    difference leads to a more accurate method.
+
+    To formulate a recursive method, we assume that uⁿ is already computed so
+    that uⁿ⁺¹ is the unknown, which we can solve for:
+
+            uⁿ⁺¹ = (1 - ½ a (t{n+1} - tn) / (1 + ½ a (t{n+1} - tn) * uⁿ
+
+    """
+    # Define solver function
+    def solver(I: float, a: float, T: float, dt: float):
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt using BE.
+
+        Parameters
+        ----------
+        I : Initial condition.
+        a : Constant coefficient.
+        T : Time to compute to.
+        dt : Step size.
+
+        Returns
+        ----------
+        u : Mesh function.
+        t : Mesh points.
+
+        """
+        # Initialise data structures
+        Nt = int(round(T / dt)) # Number of time intervals
+        u = np.zeros(Nt + 1)    # Mesh function
+        t = np.linspace(0, T, Nt + 1) # Mesh points
+
+        # Calculate mesh function using difference equation
+        # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
+        u[0] = I
+        for n_idx in range(Nt):
+            u[n_idx + 1] = (1 - 0.5 * a * dt) / (1 + 0.5 * a * dt) * u[n_idx]
+        return u, t
+
+    I = 1
+    a = 2
+    T = 8
+    dt = 0.8
+    u, t = solver(I=I, a=a, T=T, dt=dt)
+
+    # Write out a table of t and u values
+    for idx, t_i in enumerate(t):
+        print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
+
+    # Plot with red dashes w/ circles
+    plt.figure()
+    plt.plot(t, u, 'r--o', label='numerical')
+
+    # Calculate exact solution
+    u_exact = lambda t, I, a: I * np.exp(-a * t)
+    t_e = np.linspace(0, T, 1001)
+    u_e = u_exact(t_e, I, a)
+
+    # Plot with blue line
+    plt.plot(t_e, u_e, 'b-', label='exact')
+
+    # Save figure
+    plt.xlabel('t')
+    plt.ylabel('u')
+    plt.title('Crank-Nicolson, dt={:g}'.format(dt))
+    plt.legend()
+    plt.savefig(IMGDIR + 'cn.png', bbox_inches='tight')
+
+
+def unifying() -> None:
+    r"""
+    The Forward Euler, Backward Euler, and Crank-Nicolson schemes.
+
+    Notes
+    ----------
+    The Forward Euler, Backward Euler, and Crank-Nicolson schemes can be
+    formulated as one scheme with varying parameter θ:
+
+          (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
+
+    Observe that
+    - θ = 0 gives the Forward Euler scheme.
+    - θ = 1 gives the Backward Euler scheme.
+    - θ = ½ gives the Crank-Nicolson scheme.
+
+    One may alternatively choose any other value of θ in [0, 1], but this is
+    not so common since the accuracy and stability of the scheme do not improve
+    compared to the values θ = 0, 1, ½. As before, uⁿ is considered known and
+    uⁿ⁺¹ unknown, so we solve for the latter:
+
+          uⁿ⁺¹ = (1 - (1 - θ) a (t{n+1} - tn)) / (1 + θ a (t{n+1} - tn)
+
+    This is known as the θ-rule, or alternatively written as the "theta-rule".
+
+    """
+    # Define solver function
+    def solver(I: float, a: float, T: float, dt: float, theta: float):
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt using BE.
+
+        Parameters
+        ----------
+        I : Initial condition.
+        a : Constant coefficient.
+        T : Time to compute to.
+        dt : Step size.
+        theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+
+        Returns
+        ----------
+        u : Mesh function.
+        t : Mesh points.
+
+        """
+        # Initialise data structures
+        Nt = int(round(T / dt)) # Number of time intervals
+        u = np.zeros(Nt + 1)    # Mesh function
+        t = np.linspace(0, T, Nt + 1) # Mesh points
+
+        # Calculate mesh function using difference equation
+        # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
+        u[0] = I
+        for n_idx in range(Nt):
+            u[n_idx + 1] = (1 - (1 - theta) * a * dt) / \
+                (1 + theta * a * dt) * u[n_idx]
+        return u, t
+
+    I = 1
+    a = 2
+    T = 8
+    dt = 0.8
+
+    # Write out a table of t and u values for each theta
+    for th in (0, 0.5, 1):
+        u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
+        print('theta = {:g}'.format(th))
+        for idx, t_i in enumerate(t):
+            print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
+        print('-----')
 
 
 def main() -> None:
