@@ -10,6 +10,9 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * The Backward Euler scheme
     * The Crank-Nicolson scheme
     * The unifying / theta-rule
+    * Numerical Error
+2. **Analysis**
+    * Experimental investigations
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
