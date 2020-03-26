@@ -13,7 +13,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-__all__ = ['forward_euler', 'backward_euler', 'crank_nicolson', 'unifying']
+__all__ = ['forward_euler', 'backward_euler', 'crank_nicolson', 'unifying',
+           'numerical_error', 'differentiate']
 
 IMGDIR = './img/chap1/'
 """Path to store images."""
@@ -35,13 +36,13 @@ def forward_euler() -> None:
     4) formulating a recursive algorithm.
 
     Step 1: Discretising the domain.
-        We represent the time domain [0, T] by a finite number of points N_t+1,
+        We represent the time domain [0, T] by a finite number of points Nₜ+1,
         called a "mesh" or "grid".
 
-                  0 = t0 < t1 < t2 < ... < t{N_t-1} < t{N_t} = T
+                  0 = t0 < t1 < t2 < ... < t{Nₜ-1} < t{Nₜ} = T
 
         The goal is to find the solution u at the mesh points: u(tn) := uⁿ,
-        n=0,1,...,N_t. More precisely, we let uⁿ be the numerical approximation
+        n=0,1,...,Nₜ. More precisely, we let uⁿ be the numerical approximation
         to the exact solution u(tn) at t=tn.
 
         We say that the numerical approximation constitutes a mesh function,
@@ -57,7 +58,7 @@ def forward_euler() -> None:
         mesh points are a natural (but not the only) choice of points. The
         original ODE is reduced to the following
 
-             u'(tn) = -a u(tn)     a > 0     n = 0,...,N_t     u(0) = I
+             u'(tn) = -a u(tn)     a > 0     n = 0,...,Nₜ     u(0) = I
 
     Step 3: Replace derivative with finite differences.
         The next most essential step is to replace the derivative u' by the
@@ -69,7 +70,7 @@ def forward_euler() -> None:
         The name forward relates to the face that we use a value forward in
         time, uⁿ⁺¹, together with the value uⁿ at the point tn. Therefore,
 
-              (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a uⁿ,     n=0,1,...,N_t-1
+              (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a uⁿ,     n=0,1,...,Nₜ-1
 
         This is often referred to as a finite difference scheme or more
         generally as the discrete equations of the problem. The fundamental
@@ -160,7 +161,7 @@ def forward_euler() -> None:
         # Initialise data structures
         Nt = int(T / dt)      # Number of time intervals
         u = np.zeros(Nt + 1)  # Mesh function
-        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
+        t = np.linspace(0, Nt * dt, Nt + 1) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = uⁿ - a (t{n+1} - tn) uⁿ
@@ -215,12 +216,12 @@ def backward_euler() -> None:
     it is known as a backward difference, also called Backward Euler
     difference. Inserting our equation yields
 
-              (uⁿ - uⁿ⁻¹) / (tn - t{n-1}) = -a uⁿ,     n=1,...,N_t
+              (uⁿ - uⁿ⁻¹) / (tn - t{n-1}) = -a uⁿ,     n=1,...,Nₜ
 
     For direct similarity to the Forward Euler scheme, we replace n by n+1 and
     solve for the unknown value uⁿ⁺¹
 
-            uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ,     n=0,...,N_t-1
+            uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ,     n=0,...,Nₜ-1
 
     Derivation: Here we use the Taylor series around f(fn - Δt)
 
@@ -265,7 +266,7 @@ def backward_euler() -> None:
         # Initialise data structures
         Nt = int(T / dt)      # Number of time intervals
         u = np.zeros(Nt + 1)  # Mesh function
-        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
+        t = np.linspace(0, Nt * dt, Nt + 1) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
@@ -324,11 +325,11 @@ def crank_nicolson() -> None:
     With this formula, it is natural to demand the ODE be fulfilled at the time
     points between the mesh points:
 
-                    u'(t{n + ½}) = -a u(t{n + ½}),     n=0,...,N_t-1
+                    u'(t{n + ½}) = -a u(t{n + ½}),     n=0,...,Nₜ-1
 
     Combining these results results in the approximate discrete equation
 
-            (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a uⁿ⁺¹⸍²,     n=0,1,...,N_t-1
+            (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a uⁿ⁺¹⸍²,     n=0,1,...,Nₜ-1
 
     However, there is a fundamental problem with the right-hand side of the
     equation. We aim to compute uⁿ for integer n, which means that uⁿ⁺¹⸍² is
@@ -340,7 +341,7 @@ def crank_nicolson() -> None:
 
     We then obtain the approximate discrete equation
 
-        (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a ½(uⁿ + uⁿ⁺¹),     n=0,1,...,N_t-1
+        (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a ½(uⁿ + uⁿ⁺¹),     n=0,1,...,Nₜ-1
 
     There are three approximation steps leading to this formula. First, the ODE
     is only valid at discrete points. Second, the derivative is approximated by
@@ -411,7 +412,7 @@ def crank_nicolson() -> None:
         # Initialise data structures
         Nt = int(T / dt)      # Number of time intervals
         u = np.zeros(Nt + 1)  # Mesh function
-        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
+        t = np.linspace(0, Nt * dt, Nt + 1) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
@@ -497,7 +498,7 @@ def unifying() -> None:
     """
     # Define solver function
     def solver(I: float, a: float, T: float, dt: float, theta: float):
-        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt using BE.
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
 
         Parameters
         ----------
@@ -516,7 +517,7 @@ def unifying() -> None:
         # Initialise data structures
         Nt = int(T / dt)      # Number of time intervals
         u = np.zeros(Nt + 1)  # Mesh function
-        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
+        t = np.linspace(0, Nt * dt, Nt + 1) # Mesh points
 
         # Calculate mesh function using difference equation
         # (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
@@ -538,6 +539,190 @@ def unifying() -> None:
         for idx, t_i in enumerate(t):
             print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
         print('-----')
+
+
+def numerical_error() -> None:
+    r"""
+    Computing the numerical error as a mesh function.
+
+    Notes
+    ----------
+    A natural way to compare the exact and discrete solutions is to calculate
+    their difference as a mesh function for the error:
+
+                  eⁿ = uₑ(tn) - uⁿ,      n = 0,1,...Nₜ
+
+    We may also compute the norm of the error mesh function, so that we can get
+    a single number expressing the size of the error. This is obtained by
+    taking the norm of the error function. Three common norms are
+
+                       ‖f‖_{L²} = √(∫₀ᵀ f(t)² dt)
+                       ‖f‖_{L¹} = ∫₀ᵀ |f(t)| dt
+                       ‖f‖_{L∞} = max_{t ∈ [0, T]} |f(t)|
+
+    The L² norm ("L-two norm") has nice mathematical properties and is the most
+    popular norm. Numerical computations involving mesh functions need
+    corresponding norms. Imagining that the mesh function is extended to vary
+    linearly between the mesh points, the Trapezoidal rule is in fact an exact
+    integration rule. A possible possible modification of the L² norm for a
+    mesh function fⁿ on a uniform mesh with spacing Δt is therefore the
+    well-known Trapezoidal formula. A common approximation of this, motivated
+    by convenience is
+
+                       ‖fⁿ‖_{ℓ²} = √(Δt ∑₀ᴺᵗ (fⁿ)²)
+
+    This is called the discrete L² norm and denoted by ℓ². If the square of
+    this norm is used instead of the Trapezoidal integration formula, the error
+    is Δt ((f⁰)² + (fᴺᵗ)²) / 2. This means that the weights at the end points
+    of the mesh function are perturbed, but as Δt -> 0, the error from this
+    perturbation goes to zero. The three discrete norms are then define by
+
+                       ‖fⁿ‖_{ℓ²} = √(Δt ∑₀ᴺᵗ (fⁿ)²)
+                       ‖fⁿ‖_{ℓ¹} = Δt ∑₀ᴺᵗ |fⁿ|
+                       ‖fⁿ‖_{ℓ∞} = max_{0 ≤ n ≤ Nₜ} |fⁿ|
+
+    Note that L², L¹, ℓ², and ℓ¹ norms depend on the length of the interval of
+    interest. In some applications it is convenient to think of the mesh
+    function as just a vector of function values without any relation to the
+    interval [0, T]. Then one can replace Δt by T / Nₜ and simply drop the T
+    (which is just a common scaling factor). Moreover, people prefer to divide
+    by the total length of the vector, Nₜ+1 instead of just Nₜ. This reasoning
+    gives rise to the vector norms for a vector f = (f₀,...,f_N):
+
+                       ‖f‖₂ = √((1 / (N + 1)) ∑₀ᴺᵗ (fₙ)²)
+                       ‖f‖₁ = (1 / (N + 1)) ∑₀ᴺ |fₙ|
+                       ‖f‖_{ℓ∞} = max_{0 ≤ n ≤ N} |fₙ|
+
+    We will mostly work with the mesh functions and use discrete ℓ² norm or the
+    max norm ℓ∞, but the vector norms are also much used in numerical
+    computations, so it is important to know the different norms and the
+    relations between them.
+
+    A single number that expresses the size of the numerical error will be
+    taken as ‖eⁿ‖_{ℓ²} and called E:
+
+                        E = √(Δt ∑₀ᴺᵗ (eⁿ)²)
+
+    """
+    # Define solver function
+    def solver(I: float, a: float, T: float, dt: float, theta: float):
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
+
+        Parameters
+        ----------
+        I : Initial condition.
+        a : Constant coefficient.
+        T : Maximum time to compute to.
+        dt : Step size.
+        theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+
+        Returns
+        ----------
+        u : Mesh function.
+        t : Mesh points.
+
+        """
+        # Initialise data structures
+        Nt = int(T / dt)      # Number of time intervals
+        u = np.zeros(Nt + 1)  # Mesh function
+        t = np.linspace(0, Nt * dt, Nt + 1) # Mesh points
+
+        # Calculate mesh function using difference equation
+        # (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
+        u[0] = I
+        for n_idx in range(Nt):
+            u[n_idx + 1] = (1 - (1 - theta) * a * dt) / \
+                (1 + theta * a * dt) * u[n_idx]
+        return u, t
+
+    I = 1
+    a = 2
+    T = 8
+
+    th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
+               2: ('Crank-Nicolson', 'cn')}
+
+    for th in th_dict.keys():
+        print('theta = {:g}'.format(th))
+        print('dt     error')
+
+        for dt in (0.4, 0.04):
+            # Solve
+            u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
+
+            # Calculate exact solution
+            u_exact = lambda t, I, a: I * np.exp(-a * t)
+            u_e = u_exact(t, I, a)
+
+            # Calculate the error and its discrete norm
+            e = u_e - u
+            E = np.sqrt(dt * np.sum(e**2))
+
+            print('{0:6.2f} {1:12.3E}'.format(dt, E))
+
+            # Plot with red dashes w/ circles
+            plt.figure()
+            plt.errorbar(t, u, e, 0, 'r--o', label='numerical')
+
+            # Plot with blue line
+            plt.plot(t, u_e, 'b-', label='exact')
+
+            # Save figure
+            plt.xlabel('t')
+            plt.ylabel('u')
+            plt.title('{}, dt={:g}'.format(th_dict[th][0], dt))
+            plt.legend()
+            plt.savefig(IMGDIR + '{0}_{1:.2f}_err.png'.format(
+                th_dict[th][1], dt), bbox_inches='tight')
+        print('-----')
+
+
+def differentiate() -> None:
+    """
+    Differentiate a function.
+
+    Notes
+    ----------
+    Given a mesh function uⁿ as an array u at mesh points tn = n Δt, the
+    discrete derivative can be based on centered differences:
+
+        dⁿ = [D₂ₜ u]ⁿ = (uⁿ⁺¹ - uⁿ⁻¹) / 2 Δt,   n = 1,...,Nₜ - 1
+
+    At the end points we may use the forward and backward differences:
+
+                    d⁰  = [Dₜ⁺ u]ⁿ = (u¹ - u⁰) / Δt
+                    dᴺᵗ = [Dₜ⁻ u]ⁿ = (uᴺᵗ - uᴺᵗ⁻¹) / Δt
+
+    """
+
+    # Define function and boundaries
+    f = lambda t: np.exp(-t)
+    ranges = (0, 3)
+
+    # Define mesh points
+    dt = 0.1
+    Nt = int(np.diff(ranges)[0] / dt)
+    mp = np.linspace(*ranges, Nt + 1)
+
+    # Compute mesh function
+    u = f(mp)
+
+    d = np.zeros_like(mp)
+
+    # Approximate discrete derivative using centered differences
+    d[1: -1] = (u[2:] - u[:-2]) / (2 * dt)
+
+    # Approximate the end points using forward and backward differences
+    d[0] = (u[1] - u[0]) / dt
+    d[-1] = (u[-1] - u[-2]) / dt
+
+    # Compute exact values
+    df = lambda t: -np.exp(-t)
+    d_e = df(mp)
+
+    print('t     d       exact')
+    for idx in range(Nt + 1):
+        print('{0:4.2f} {1:6.4f} {2:6.4f}'.format(mp[idx], d[idx], d_e[idx]))
 
 
 def main() -> None:
