@@ -7,6 +7,9 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
 ### Chapters
 1. **Algorithms and implementations**
     * The Forward Euler scheme
+    * The Backward Euler scheme
+    * The Crank-Nicolson scheme
+    * The unifying / theta-rule
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
