@@ -23,7 +23,7 @@ STR_FMT = '{0}\n{1}\n'
 
 def forward_euler() -> None:
     r"""
-    Solve ODE (1) by the Forward Euler (FE) finite difference method.
+    Solve ODE (1) by the Forward Euler (FE) finite difference scheme.
 
     Notes
     ----------
@@ -95,6 +95,50 @@ def forward_euler() -> None:
     have a new t and u value and can compute a new slope and continue this
     process.
 
+    Derivation: The key tool for this is the Taylor series.
+
+    f(x) ≈ f(a) + f'(a)(x - a) + ½f''(a)(x - a)² + ⅙f'''(a)(x - a)³ + ...
+           + (1 / m!) dᵐf/dxᵐ(a)(x - a)ᵐ
+
+    For a function of time, f(t), related to mesh spacing Δt,
+
+    f(tn + Δt) ≈ f(tn) + f'(tn)Δt + ½f''(tn)Δt² + ⅙f'''(tn)Δt³ + ...
+                 + (1 / m!) dᵐf/dtᵐ(tn)Δtᵐ
+
+    Now, by rearranging for f'(tn)
+
+    f'(tn) ≈ (f(tn + Δt) - f(tn)) / Δt - ½f''(tn)Δt - ⅙f'''(tn)Δt² - ...
+             - (1 / m!) dᵐf/dtᵐ(tn)Δtᵐ⁻¹
+
+    Now, in the limit Δt -> 0,
+
+                    f'(tn) ≈ (f(tn + Δt) - f(tn) / Δt
+
+    An interesting point is that we have a measure of the error as seen by the
+    O(Δtᵐ) terms. A leading order, the error can be given as ½f''(tn)Δt.
+
+    Compact notation: For a function u(t), a forward difference approximation
+    is denoted by the Dₜ⁺ operator and written as
+
+                 [Dₜ⁺ u]ⁿ = (uⁿ⁺¹ - uⁿ) / Δt    (≈ du(tn)/dt)
+
+    This notation consists of an operator that approximates differentiation wrt
+    an independent variable, here t. The operator is built on the symbol D,
+    with the independent variable as subscript and a superscript denoting the
+    type of difference. The superscript ⁺ indicates a forward difference. We
+    place square brackets around the operator and the function it operates on
+    and specify the mesh point, where the operator is acting, by a superscript
+    after the closing bracket. In our compact notation, the Forward Euler
+    scheme can be written as
+
+                              [Dₜ⁺ u]ⁿ = -a uⁿ
+
+    In difference equations, we often place the square brackets around the
+    whole equation, to indicate which mesh point the equation applies, since
+    each term by be approximated at the same point:
+
+                              [Dₜ⁺ u = -a u]ⁿ
+
     """
     # Define solver function
     def solver(I: float, a: float, T: float, dt: float):
@@ -104,7 +148,7 @@ def forward_euler() -> None:
         ----------
         I : Initial condition.
         a : Constant coefficient.
-        T : Time to compute to.
+        T : Maximum time to compute to.
         dt : Step size.
 
         Returns
@@ -114,9 +158,9 @@ def forward_euler() -> None:
 
         """
         # Initialise data structures
-        Nt = int(round(T / dt)) # Number of time intervals
-        u = np.zeros(Nt + 1)    # Mesh function
-        t = np.linspace(0, T, Nt + 1) # Mesh points
+        Nt = int(T / dt)      # Number of time intervals
+        u = np.zeros(Nt + 1)  # Mesh function
+        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = uⁿ - a (t{n+1} - tn) uⁿ
@@ -157,12 +201,12 @@ def forward_euler() -> None:
 
 def backward_euler() -> None:
     r"""
-    Solve ODE (1) by the Backward Euler (BE) finite difference method.
+    Solve ODE (1) by the Backward Euler (BE) finite difference scheme.
 
     Notes
     ----------
     There are several choices of difference approximations in step 3 of the
-    finite difference method presenting in `forward_euler`. Another alternative
+    finite difference scheme presenting in `forward_euler`. Another alternative
     is
 
                       u'(tn) ≈ (uⁿ - uⁿ⁻¹) / (tn - t{n-1})
@@ -178,6 +222,28 @@ def backward_euler() -> None:
 
             uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ,     n=0,...,N_t-1
 
+    Derivation: Here we use the Taylor series around f(fn - Δt)
+
+    f(tn - Δt) ≈ f(tn) - f'(tn)Δt + ½f''(tn)Δt² - ⅙f'''(tn)Δt³ + ...
+                 + (1 / m!) dᵐf/dtᵐ(tn)Δtᵐ
+
+    Solving with respect to f'(tn) gives
+
+    f'(tn) ≈ (f(tn) - f(tn - Δt)) / Δt + ½f''(tn)Δt - ⅙f'''(tn)Δt² + ...
+             - (1 / m!) dᵐf/dtᵐ(tn)Δtᵐ⁻¹
+
+    Then term ½f''(tn)Δt can be taken as a simple measure of the approximation
+    error.
+
+    Compact notation: The backward difference reads
+
+                 [Dₜ⁻ u]ⁿ = (uⁿ - uⁿ⁻¹) / Δt    (≈ du(tn)/dt)
+
+    Note the subscript ⁻ denotes the backward difference. The Backward Euler
+    scheme to our ODE can be written as
+
+                              [Dₜ⁻ u = -a u]ⁿ
+
     """
     # Define solver function
     def solver(I: float, a: float, T: float, dt: float):
@@ -187,7 +253,7 @@ def backward_euler() -> None:
         ----------
         I : Initial condition.
         a : Constant coefficient.
-        T : Time to compute to.
+        T : Maximum time to compute to.
         dt : Step size.
 
         Returns
@@ -197,9 +263,9 @@ def backward_euler() -> None:
 
         """
         # Initialise data structures
-        Nt = int(round(T / dt)) # Number of time intervals
-        u = np.zeros(Nt + 1)    # Mesh function
-        t = np.linspace(0, T, Nt + 1) # Mesh points
+        Nt = int(T / dt)      # Number of time intervals
+        u = np.zeros(Nt + 1)  # Mesh function
+        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
@@ -240,11 +306,11 @@ def backward_euler() -> None:
 
 def crank_nicolson() -> None:
     r"""
-    Solve ODE (1) by the Crank-Nicolson (CN) finite difference method.
+    Solve ODE (1) by the Crank-Nicolson (CN) finite difference scheme.
 
     Notes
     ----------
-    The finite difference methods derived in `forward_euler` and
+    The finite difference schemes derived in `forward_euler` and
     `backward_euler` are both one-sided differences. Such one-sided differences
     are known to be less accurate than central (or midpoint) differences, where
     we use information both forward and backward in time. A natural next step
@@ -253,12 +319,12 @@ def crank_nicolson() -> None:
     The central difference approximation to the derivative is sought at the
     point t{n+½} = ½(tn + t{n+1}). The approximation reads
 
-                    u'(t{n+½}) ≈ (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn)
+                    u'(t{n + ½}) ≈ (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn)
 
     With this formula, it is natural to demand the ODE be fulfilled at the time
     points between the mesh points:
 
-                    u'(t{n+½}) = -a u(t{n+½}),     n=0,...,N_t-1
+                    u'(t{n + ½}) = -a u(t{n + ½}),     n=0,...,N_t-1
 
     Combining these results results in the approximate discrete equation
 
@@ -288,6 +354,42 @@ def crank_nicolson() -> None:
 
             uⁿ⁺¹ = (1 - ½ a (t{n+1} - tn) / (1 + ½ a (t{n+1} - tn) * uⁿ
 
+    Derivation: The centered difference approximates the derivative at
+    tn + ½Δt. The Taylor expansions of f(tn) and f(t{n+1}) around tn + ½Δt are
+
+    f(tn) ≈ f(tn + ½Δt) - f'(tn + ½Δt)½Δt + ½f''(tn + ½Δt)(½Δt)² -
+            ⅙f'''(tn + ½Δt)(½Δt)³ + ... + (1 / m!) dᵐf/dtᵐ(tn + ½Δt)(½Δt)ᵐ
+    f(t{n+1}) ≈ f(tn + ½Δt) + f'(tn + ½Δt)½Δt + ½f''(tn + ½Δt)(½Δt)² +
+                ⅙f'''(tn + ½Δt)(½Δt)³ + ... + (1 / m!) dᵐf/dtᵐ(tn + ½Δt)(½Δt)ᵐ
+
+    Subtracting the first from the second givesΔt)²
+
+    f(t{n+1}) - f(tn) ≈ f'(tn + ½Δt)Δt + ⅓f'''(tn + ½Δt)(½Δt)³ + ...
+
+    Solving with respect to f'(tn + ½Δt) results in
+
+    f'(tn + ½Δt) ≈ (f(t{n+1}) - f(tn)) / Δt - (1/24)f''(tn + ½Δt)Δt² + ...
+
+    The error measure goes like O(Δt²), which means the error here goes faster
+    to zero compared to the forward and backward differences for small Δt.
+
+    Compact notation: The centered difference operator notation reads
+
+                 [Dₜ u]ⁿ = (uⁿ⁺¹⸍² - uⁿ⁻¹⸍²) / Δt    (≈ du(tn)/dt)
+
+    Note here that no superscript implies a central differences. An averaging
+    operator is also convenient to have:
+
+                    [ūᵗ]ⁿ = ½(uⁿ⁻¹⸍² + uⁿ⁺¹⸍²) ≈ u(tn)
+
+    The superscript ᵗ indicates that the average is taken along the time
+    coordinate. The common average (uⁿ + uⁿ⁺¹⸍²) / 2 can now be expressed as
+    [ūᵗ]ⁿ⁺¹⸍².
+
+    Now the Crank-Nicolson scheme to our ODE can be written as
+
+                            [Dₜ u = -a ūᵗ]ⁿ⁺¹⸍²
+
     """
     # Define solver function
     def solver(I: float, a: float, T: float, dt: float):
@@ -297,7 +399,7 @@ def crank_nicolson() -> None:
         ----------
         I : Initial condition.
         a : Constant coefficient.
-        T : Time to compute to.
+        T : Maximum time to compute to.
         dt : Step size.
 
         Returns
@@ -307,9 +409,9 @@ def crank_nicolson() -> None:
 
         """
         # Initialise data structures
-        Nt = int(round(T / dt)) # Number of time intervals
-        u = np.zeros(Nt + 1)    # Mesh function
-        t = np.linspace(0, T, Nt + 1) # Mesh points
+        Nt = int(T / dt)      # Number of time intervals
+        u = np.zeros(Nt + 1)  # Mesh function
+        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
 
         # Calculate mesh function using difference equation
         # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
@@ -373,6 +475,25 @@ def unifying() -> None:
 
     This is known as the θ-rule, or alternatively written as the "theta-rule".
 
+    Compact notation: The θ-rule can be specified in operator notation by
+
+                            [D̄ₜ u = -a ūᵗʼᶿ]ⁿ⁺ᶿ
+
+    We define a new time difference
+
+                    [D̄ₜ u]ⁿ⁺ᶿ = (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn)
+
+    To be applied at the time point t{n+θ} ≈ θ tn + (1 - θ) t{n+1}. This
+    weighted average gives rise to the weighted average operator
+
+                  [ūᵗʼᶿ]ⁿ⁺ᶿ = (1 - θ) uⁿ + θ uⁿ⁺¹ ≈ u(t{n+θ})
+
+    where θ ∈ [0, 1] as usual. Note that for θ = ½, we recover the standard
+    centered difference and standard arithmetic mean. An alternative and
+    perhaps clearer notation is
+
+                  [Dₜ u]ⁿ⁺¹⸍² = θ [-a u]ⁿ⁺¹ + (1 - θ) [-a u]ⁿ
+
     """
     # Define solver function
     def solver(I: float, a: float, T: float, dt: float, theta: float):
@@ -382,7 +503,7 @@ def unifying() -> None:
         ----------
         I : Initial condition.
         a : Constant coefficient.
-        T : Time to compute to.
+        T : Maximum time to compute to.
         dt : Step size.
         theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
 
@@ -393,12 +514,12 @@ def unifying() -> None:
 
         """
         # Initialise data structures
-        Nt = int(round(T / dt)) # Number of time intervals
-        u = np.zeros(Nt + 1)    # Mesh function
-        t = np.linspace(0, T, Nt + 1) # Mesh points
+        Nt = int(T / dt)      # Number of time intervals
+        u = np.zeros(Nt + 1)  # Mesh function
+        t = np.arange(0, (Nt + 1) * dt, dt) # Mesh points
 
         # Calculate mesh function using difference equation
-        # uⁿ⁺¹ = 1 / (1 + a (t{n+1} - tn)) * uⁿ
+        # (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
         u[0] = I
         for n_idx in range(Nt):
             u[n_idx + 1] = (1 - (1 - theta) * a * dt) / \
