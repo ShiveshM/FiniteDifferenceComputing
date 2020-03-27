@@ -13,10 +13,13 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Numerical Error
 2. **Analysis**
     * Experimental investigations
+    * Stability
+    * Accuracy
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
 * [`NumPy`](http://www.numpy.org/)
+* [`Matplotlib`](https://matplotlib.org/)
 
 ### Usage
 Overview of chapters is given above. To run all code for a particular chapter,

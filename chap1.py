@@ -285,6 +285,11 @@ def backward_euler() -> None:
     for idx, t_i in enumerate(t):
         print('t={0:6.3f} u={1:g}'.format(t_i, u[idx]))
 
+    # Testing Backward difference
+    for idx in reversed(range(len(u) - 1)):
+        print('calc u(n-1) = {:.6f}'.format(u[idx + 1] + a * dt * u[idx + 1]))
+        print('actu u(n-1) = {:.6f}'.format(u[idx]))
+
     # Plot with red dashes w/ circles
     plt.figure()
     plt.plot(t, u, 'r--o', label='numerical')
