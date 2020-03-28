@@ -10,12 +10,14 @@ Problem formulation: Using finite difference methods find u(t) such that:
 """
 
 import numpy as np
+import sympy as sym
 from matplotlib import pyplot as plt
 
 from utils.solver import solver
 
 
-__all__ = ['investigations', 'stability']
+__all__ = ['investigations', 'stability', 'visual_accuracy', 'amp_error',
+           'global_error', 'integrated_error', 'truncation_error']
 
 IMGDIR = './img/chap2/'
 """Path to store images."""
@@ -95,7 +97,7 @@ def stability() -> None:
     We loop over values of I, a and Δt in our chosen model problem. For each
     experiments, we flag the solution as oscillatory if
 
-                            uⁿ > uⁿ⁻¹
+                                   uⁿ > uⁿ⁻¹
 
     for some value of n, since we expect uⁿ to decay with n. Doing some
     experiments varying I, a and Δt, reveals that oscillations are independent
@@ -115,9 +117,9 @@ def stability() -> None:
     homogeneous, linear difference equations, and their solutions are generally
     of the form uⁿ = Aⁿ.
 
-    This formula can explain everything we see in the figures produced in
-    `detailed_experiments`, but it also gives us a more general insight into
-    the accuracy and stability properties of the three schemes.
+    This formula can explain everything we see in the figures produced here,
+    but it also gives us a more general insight into the accuracy and stability
+    properties of the three schemes.
 
     Since uⁿ is a factor A raise to an integer power n, we realise that A < 0
     will imply uⁿ < 0 for odd n and uⁿ > 0 for even n. That is, the solution
@@ -204,15 +206,266 @@ def stability() -> None:
         fig.savefig(IMGDIR + f'{th_dict[th][1]}_osc.png', bbox_inches='tight')
 
 
-def accuracy() -> None:
+def visual_accuracy() -> None:
     """
-    Quantitatively examine how large numerical errors are.
+    Visually examine how large numerical errors are.
 
     Notes
     ----------
-    While stability concerns the qualitative properties of the numerical
-    solution, it remains to investigate the quantitative properties to see
-    exactly how large the numerical errors are.
+    The exact solution reads u(t) = I e⁻ᵃᵗ, which can be rewritten as
+
+                 uₑ(tn) = I exp{-a n Δt} = I (exp{-a n Δt})ⁿ
+
+    From this, we see the exact amplification factor is
+
+                              Aₑ = exp{-a n Δt}
+
+    We saw that the exact and numerical amplification factors depend on a and
+    Δt through the dimensionless product a Δt, which we will denote as
+    p = a Δt, and view A and Aₑ as functions of p. It is common that the
+    numerical performance of methods for solving ODEs and PDEs is governed by
+    dimensionless parameters that combine mesh sizes with physical parameters.
+
+    """
+    def calc_amp(p: float, theta: float):
+        """Calculate the amplification factor for u'=-a*u.
+
+        Parameters
+        ----------
+        p : a Δt
+        theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+
+        Returns
+        ----------
+        amp : Amplification factor.
+
+        """
+        return (1 - (1 - theta) * p) / (1 + theta * p)
+
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
+
+    fig, ax = plt.subplots()
+    ax.set_title('Amplification factors')
+    ax.set_xlabel('$p=a\Delta t$')
+    ax.set_ylabel('Amplification factor')
+    ax.set_xlim(0, 3)
+    ax.set_ylim(-2, 1)
+    ax.grid(c='k', ls='--', alpha=0.3)
+
+    # Mesh grid for p = a Δt
+    p = np.linspace(0, 3, 20)
+
+    for th in th_dict.keys():
+        # Calculate amplification factor
+        amp = calc_amp(p, th)
+
+        # Plot
+        ax.plot(p, amp, th_dict[th][2], label=th_dict[th][0])
+
+    # Exact solution
+    amp_exact = np.exp(-p)
+    ax.plot(p, amp_exact, 'k-o', label='exact')
+
+    ax.legend(loc='lower left')
+    fig.savefig(IMGDIR + 'amplification_factors.png', bbox_inches='tight')
+
+
+def amp_error() -> None:
+    """
+    Series expansion of amplification factors.
+
+    Notes
+    ----------
+    Next we would like to establish a formula for approximating the errors.
+    Calculating the Taylor series for Aₑ can easily be done by hand, but the
+    three versions of A for θ = 0, 1, ½ lead to more cumbersome calculations.
+
+    Nowadays, analytical computations can benefit greatly by symbolic computer
+    algebra software. The package SymPy represents a powerful computer algebra
+    system.
+
+    From the expressions below, we see that A - Aₑ ~ O(p²) for the Forward and
+    Backward Euler schemes, while A - Aₑ ~ O(p³) for the Crank-Nicolson scheme.
+    Since a is a given parameter and Δt is what we can vary, the error
+    expressions are usually written in terms of Δt
+
+                    A - Aₑ = O(Δt²)   Forward and Backward Euler
+                    A - Aₑ = O(Δt³)   Crank-Nicolson
+
+    We say that the Crank-Nicolson scheme has an error in the amplification
+    factor of order Δt³, while the other two are of order Δt². That is, as we
+    reduce Δt to obtain more accurate results, the Crank-Nicolson scheme
+    reduces the error more efficiently than the other schemes.
+
+    An alternative comparison of the schemes is provided by looking at the
+    ratio A/Aₑ, or the error 1 - A/Aₑ in this ratio. The leading order terms
+    have the same powers as in the analysis of A - Aₑ.
+
+    """
+    # Create p as a mathematical symbol with name 'p'
+    p = sym.Symbol('p')
+
+    # Create a mathematical expression with p
+    A_e = sym.exp(-p)
+
+    # Find the first 6 terms of the Taylor series of Aₑ
+    print(STR_FMT.format('A_e.series(p, 0, 6)', A_e.series(p, 0, 6)))
+
+    # Create analytical function for A, dependent on theta
+    theta = sym.Symbol('theta')
+    A = (1 - (1 - theta) * p) / (1 + theta * p)
+
+    # To work with the Forward Euler scheme, we can substitue theta = 0
+    A_fe = A.subs(theta, 0)
+    print(STR_FMT.format('Forward Euler Amplification factor', A_fe))
+
+    # Similar for Backward Euler and Crank-Nicolson schemes
+    A_be = A.subs(theta, 1)
+    half = sym.Rational(1, 2)
+    A_cn = A.subs(theta, half)
+    print(STR_FMT.format('Backward Euler Amplification factor', A_be))
+    print(STR_FMT.format('Crank-Nicolson Amplification factor', A_cn))
+
+    # Now we can compare the Taylor series expansions of the amplification
+    fe_err = A_e.series(p, 0, 4) - A_fe.series(p, 0, 4)
+    be_err = A_e.series(p, 0, 4) - A_be.series(p, 0, 4)
+    cn_err = A_e.series(p, 0, 4) - A_cn.series(p, 0, 4)
+    print(STR_FMT.format('Forward Euler Amplification error', fe_err))
+    print(STR_FMT.format('Backward Euler Amplification error', be_err))
+    print(STR_FMT.format('Crank-Nicolson Amplification error', cn_err))
+
+    # Alternatively, use the ratio A/Aₑ, or the error 1 - A/Aₑ in this ratio
+    fe_ratio = 1 - (A_fe / A_e).series(p, 0, 4)
+    be_ratio = 1 - (A_be / A_e).series(p, 0, 4)
+    cn_ratio = 1 - (A_cn / A_e).series(p, 0, 4)
+    print(STR_FMT.format('Forward Euler Ratio error', fe_ratio))
+    print(STR_FMT.format('Backward Euler Ratio error', be_ratio))
+    print(STR_FMT.format('Crank-Nicolson Ratio error', cn_ratio))
+
+
+def global_error() -> None:
+    """
+    The global error at a point.
+
+    Notes
+    ----------
+    The error in the amplification factor reflects the error when progressing
+    from time level tn to t{n-1} only. That is, we disregard the error already
+    present in the solution at t{n-1}. The real error at a point, however,
+    depends on the error development over all previous time steps.
+
+                            eⁿ = uⁿ - uₑ(tn)
+
+    This is known as the global error. We may look at uⁿ for some n and Taylor
+    expand as functions of p to get a simple expression for the global error.
+
+    Here we see that the global error for the Forward Euler and Backward Euler
+    schemes is O(Δt) and for the Crank-Nicolson scheme it is O(Δt²).
+
+    When the global error eⁿ → 0 as Δt → 0, we say the scheme is convergent. It
+    means that the numerical solution approaches the exact solution as the mesh
+    is refined, and this is a much desired property of a numerical method.
+
+    """
+    # Define amplification factor
+    p, theta = sym.symbols('p theta')
+    A = (1 - (1 - theta) * p) / (1 + theta * p)
+
+    # Define mesh function along with the exact function
+    n = sym.Symbol('n')
+    u_e = sym.exp(-p * n)
+    u_n = A**n
+
+    # Define FE, BE, CN
+    fe = u_n.subs(theta, 0)
+    be = u_n.subs(theta, 1)
+    half = sym.Rational(1, 2)
+    cn = u_n.subs(theta, half)
+
+    print(STR_FMT.format('Forward Euler', fe))
+    print(STR_FMT.format('Backward Euler', be))
+    print(STR_FMT.format('Crank-Nicolson', cn))
+
+    # Now we can compute the global error
+    fe_err = u_e.series(p, 0, 4) - fe.series(p, 0, 4)
+    be_err = u_e.series(p, 0, 4) - be.series(p, 0, 4)
+    cn_err = u_e.series(p, 0, 4) - cn.series(p, 0, 4)
+
+    # Substitute back in a, t, and Δt and extract leading dt term
+    a, t, dt = sym.symbols('a t dt')
+    fe_err = fe_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+    be_err = be_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+    cn_err = cn_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+
+    print(STR_FMT.format('Forward Euler global error', fe_err))
+    print(STR_FMT.format('Backward Euler global error', be_err))
+    print(STR_FMT.format('Crank-Nicolson global error', cn_err))
+
+
+def integrated_error() -> None:
+    """
+    Study the norm of the numerical error by performing symbolic integration.
+
+    Notes
+    ----------
+    The L² norm of the error can be computed by treating eⁿ as a function of t
+    in SymPy and performing symbolic integration.
+
+    In summary, both the global point-wise errors and their time-integrated
+    versions show that
+    - The Crank-Nicolson scheme is of second order in Δt.
+    - The Forward Euler and Backward Euler schemes are of first order in Δt.
+
+    """
+    # Define amplification factor
+    p, theta = sym.symbols('p theta')
+    A = (1 - (1 - theta) * p) / (1 + theta * p)
+
+    # Define mesh function along with the exact function
+    n = sym.Symbol('n')
+    u_e = sym.exp(-p * n)
+    u_n = A**n
+
+    # Define FE, BE, CN
+    fe = u_n.subs(theta, 0)
+    be = u_n.subs(theta, 1)
+    half = sym.Rational(1, 2)
+    cn = u_n.subs(theta, half)
+
+    # Now we can compute the global error
+    fe_err = u_e.series(p, 0, 4) - fe.series(p, 0, 4)
+    be_err = u_e.series(p, 0, 4) - be.series(p, 0, 4)
+    cn_err = u_e.series(p, 0, 4) - cn.series(p, 0, 4)
+
+    # Substitute back in a, t, and Δt and extract leading dt term
+    a, t, dt = sym.symbols('a t dt')
+    fe_err = fe_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+    be_err = be_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+    cn_err = cn_err.subs('n', 't/dt').subs('p', 'a*dt').as_leading_term(dt)
+
+    # Compute the L² norm of the error
+    T = sym.Symbol('T')
+    fe_err_L2 = sym.sqrt(sym.integrate(fe_err**2, (t, 0, T)))
+    be_err_L2 = sym.sqrt(sym.integrate(be_err**2, (t, 0, T)))
+    cn_err_L2 = sym.sqrt(sym.integrate(cn_err**2, (t, 0, T)))
+
+    print(STR_FMT.format('Forward Euler global L2 error', fe_err_L2))
+    print(STR_FMT.format('Backward Euler global L2 error', be_err_L2))
+    print(STR_FMT.format('Crank-Nicolson global L2 error', cn_err_L2))
+
+
+def truncation_error() -> None:
+    """
+    Truncation error.
+
+    Notes
+    ----------
+    The truncation error is defined as the error in the difference equation
+    that arises when inserting the exact solution. Contrary to many other error
+    measures, e.g. the true global error eⁿ = uⁿ - uₑ(tn), the truncation error
+    is a quantity that is easily computable.
 
     """
 

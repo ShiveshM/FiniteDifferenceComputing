@@ -577,7 +577,7 @@ def numerical_error() -> None:
     A single number that expresses the size of the numerical error will be
     taken as ‖eⁿ‖_{ℓ²} and called E:
 
-                        E = √(Δt ∑₀ᴺᵗ (eⁿ)²)
+                              E = √(Δt ∑₀ᴺᵗ (eⁿ)²)
 
     """
     from utils.solver import solver

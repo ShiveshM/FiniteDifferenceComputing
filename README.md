@@ -15,10 +15,15 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Experimental investigations
     * Stability
     * Accuracy
+    * Amplification error
+    * Global error
+    * Global integrated error
+    * Truncation error
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
 * [`NumPy`](http://www.numpy.org/)
+* [`SymPy`](https://www.sympy.org/)
 * [`Matplotlib`](https://matplotlib.org/)
 
 ### Usage
