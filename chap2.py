@@ -864,7 +864,7 @@ def discretisation_errors() -> None:
         ax.set_title(f'$\Delta t={dt}$')
         ax.set_xlim(0, T)
         ax.set_xlabel('t')
-        ax.set_ylabel('log(abs(numerical / global error))')
+        ax.set_ylabel('log(abs(global error))')
 
         for th in th_dict.keys():
             u, t = solver(I, a, T, dt, th)
@@ -1027,7 +1027,7 @@ def exponential_growth() -> None:
 
         # Save figure
         fig.savefig(
-            IMGDIR + f'{th_dict[th][1]}_growth.png', bbox_inches='tight'
+            IMGDIR + f'/growth/{th_dict[th][1]}_growth.png', bbox_inches='tight'
         )
 
     def calc_amp(p: float, theta: float):
@@ -1069,7 +1069,7 @@ def exponential_growth() -> None:
 
     ax.legend(loc='lower left')
     fig.savefig(
-        IMGDIR + 'amplification_factors_growth.png', bbox_inches='tight'
+        IMGDIR + '/growth/amplification_factors_growth.png', bbox_inches='tight'
     )
 
     I = 1
@@ -1110,9 +1110,44 @@ def exponential_growth() -> None:
         ax.contourf(a_grid, dt_grid, B, levels=[0., 0.1], hatches='XX',
                     colors='grey', alpha=0.3, lines='k')
         fig.savefig(
-            IMGDIR + f'{th_dict[th][1]}_osc_growth.png', bbox_inches='tight'
+            IMGDIR + f'/growth/{th_dict[th][1]}_osc_growth.png',
+            bbox_inches='tight'
         )
 
+    a = -1
+    T = 4
+
+    # dt values
+    dt_values = [0.8, 0.4, 0.1, 0.01]
+
+    # Setup figure
+    fig, axs = plt.subplots(
+        2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3, 'wspace': 0.3}
+    )
+    fig.suptitle(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95)
+
+    for dt_idx, dt in enumerate(dt_values):
+        # Setup axes
+        ax = axs.flat[dt_idx]
+        ax.set_title(f'$\Delta t={dt}$')
+        ax.set_xlim(0, T)
+        ax.set_xlabel('t')
+        ax.set_ylabel('log(abs(global error))')
+
+        for th in th_dict.keys():
+            u, t = solver(I, a, T, dt, th)
+            u_e = I * np.exp(-a * t)
+            error = u_e - u
+
+            # Exclude fist error entry as it is 0
+            ax.plot(t[1:], np.log(np.abs(error[1:])), label=th_dict[th][1])
+
+        ax.legend(loc='upper right')
+
+    fig.savefig(
+        IMGDIR + '/growth/discretisation_errors_growth.png',
+        bbox_inches='tight'
+    )
 
 def main() -> None:
     """Main program, used when run as a script."""
