@@ -17,7 +17,9 @@ from utils.solver import solver
 
 
 __all__ = ['investigations', 'stability', 'visual_accuracy', 'amp_error',
-           'global_error', 'integrated_error', 'truncation_error']
+           'global_error', 'integrated_error', 'truncation_error',
+           'consistency_stability_convergence', 'model_errors', 'data_errors',
+           'discretisation_errors']
 
 IMGDIR = './img/chap2/'
 """Path to store images."""
@@ -466,6 +468,325 @@ def truncation_error() -> None:
     that arises when inserting the exact solution. Contrary to many other error
     measures, e.g. the true global error eⁿ = uⁿ - uₑ(tn), the truncation error
     is a quantity that is easily computable.
+
+    For the Forward Euler scheme, start with the difference equation
+
+                               [Dₜ⁺ u = -a u]ⁿ
+
+    The idea is to see how well the exact solution uₑ(t) fulfills this
+    equation, since uₑ(t) in general will not obey the discrete equation. This
+    error is called a residual, denoted by Rⁿ
+
+                  Rⁿ = (uₑ(t{n+1}) - uₑ(tn)) / Δt + a uₑ(tn)
+
+    The residual is defined at each mesh point and is therefore a mesh function
+    with subscript n.
+
+    The interesting feature of Rⁿ is to see how it depends on the
+    discretisation parameter Δt, which we will compute using a Taylor expansion
+    of uₑ around the point where the difference equation is supposed to hold,
+    where t = tn. We have
+
+            uₑ(t{n+1}) = uₑ(tn) + u'ₑ(tn) Δt + ½ u''ₑ(tn) (Δt)² + ...
+
+    Therefore
+
+                  Rⁿ = u'ₑ(tn) + ½ u''ₑ(tn) Δt + ... + a uₑ(tn)
+
+                          Rⁿ = ½ u''ₑ(tn) Δt + O(Δt²)
+
+    This Rⁿ is the truncation error, which for the Forward Euler is seen to be
+    of first order in Δt.
+
+    The Backward Euler schemes leads to
+
+                             Rⁿ ≈ -½ u''ₑ(tn) Δt
+
+    while the Crank-Nicolson scheme gives
+
+                           Rⁿ ≈ (1/24) u'''ₑ(tn) Δt²
+
+    The above expressions point out that the Forward and Backward Euler schemes
+    are of first order, while Crank-Nicolson is of second order.
+
+    """
+    # Define the exact function
+    a, t = sym.symbols('a t')
+    u_e = sym.exp(-a * t)
+
+    # Calculate truncation errors
+    dt = sym.Symbol('dt')
+    half = sym.Rational(1, 2)
+    u_e_exp = u_e.subs('t', 't+dt').series(dt, 0, 4)
+    Rn_fe = (u_e_exp - u_e) / dt + a * u_e
+    Rn_be = (u_e - u_e.subs('t', 't-dt').series(dt, 0, 4)) / dt + a * u_e
+    Rn_cn = (u_e_exp - u_e) / dt + a * half * (u_e + u_e_exp)
+
+    # Get the leading dt term
+    Rn_fe = Rn_fe.as_leading_term(dt)
+    Rn_be = Rn_be.as_leading_term(dt)
+    Rn_cn = Rn_cn.as_leading_term(dt)
+
+    print(STR_FMT.format('Forward Euler truncation error', Rn_fe))
+    print(STR_FMT.format('Backward Euler truncation error', Rn_be))
+    print(STR_FMT.format('Crank-Nicolson truncation error', Rn_cn))
+
+
+def consistency_stability_convergence() -> None:
+    """
+    Notes on consistency, stability, and convergence.
+
+    Notes
+    ----------
+    Consistency
+        Consistency means that the error in the difference equation, measured
+        through the truncation error, goes to zero as Δt → 0. Since the
+        truncation error tells how well the exact solution fulfills the
+        difference equation, and the exact solution fulfills the differential
+        equation, consistency ensures that the difference equation approaches
+        the differential equation in the limit. Lack of consistency implies we
+        actually solve some other differential equation in the limit Δt → 0
+        that we aim at.
+
+    Stability
+        Stability means that the numerical solution exhibits the same
+        qualitative properties as the exact solution. In the exponential decay
+        model, the exact solution is monotone and decaying. An increasing
+        numerical solution is not in accordance with the decaying nature of the
+        exact solution and hence unstable. We can also say that an oscillating
+        numerical solution lacks the property of monotonicity of the exact
+        solution and is also unstable.
+
+    Convergence
+        Convergence implies that the global (true) error mesh function
+        eⁿ = uⁿ - uₑ(tn) → 0 as Δt → 0. This is really what we want: the
+        numerical solution gets as close to the exact solution as we request by
+        having a sufficiently fine mesh. Convergence is hard to establish
+        theoretically, except in quite simple problems like the present one. A
+        major breakthrough in the understanding of numerical methods for
+        differential equations came in 1956 when Lax and Richtmeyer established
+        equivalence between convergence on one hand and consistency and
+        stability on the other (the Lax equivalence theorem [1]). In practice
+        it meant that one can first establish that a method is stable and
+        consistent, and then it is automatically convergent. The result holds
+        for linear problems only, and in the world of nonlinear differential
+        equations, the relations between consistency, stability, and
+        convergence are much more complicated.
+
+    We have seen in the previous analysis that the Forward Euler, Backward
+    Euler, and Crank-Nicolson schemes are convergent (eⁿ → 0), that they are
+    consistent (Rⁿ → 0), and that they are stable under certain conditions on
+    the size of Δt.
+
+    [1]_ http://en.wikipedia.org/wiki/Lax_equivalence_theorem
+
+    """
+    pass
+
+
+def model_errors() -> None:
+    """
+    Model errors.
+
+    Notes
+    ----------
+    So far we have been concerned with one type of error, namely the
+    discretisation error committed by replacing the differential equation
+    problem by a recursive set of difference equations. There are, however,
+    other types of errors that must be considered too. We classify into four
+    groups
+
+    1) model errors: how wrong is the ODE model?
+    2) data errors: how wrong are the input parameters?
+    3) discretisation errors: how wrong is the numerical method?
+    4) rounding errors: how wrong is the computer arithmetics?
+
+    Any mathematical model like u' = -a u, u(0) = I, is just an approximate
+    description of a real-world phenomenon. How good this approximation is can
+    be determined by comparing physical experiments with what the model
+    predicts. This is the topic of validation. One difficulty with validation
+    is that we need to estimate the parameters in the model, and this brings in
+    data errors. Quantifying data errors is challenging, and a frequently used
+    method is to tune the parameters in the model to make model predictions as
+    close as possible to the experiments. Another difficulty is that the
+    response in experiments also contains errors due to measurement techniques.
+
+    Let us try and quantify model errors in a very simple example. Suppose a
+    more accurate model has a as a function of time rather than a constant.
+    Here we take a(t) as a simple linear function: (a + p t). The solution of
+
+                      u' = -(a + p t) u,        u(0) = I
+
+            is            u(t) = I exp{-t(a + ½ p t)}
+
+    We can use SymPy to solve this instead and then make plots of the two
+    models and the error for some values of p.
+
+    """
+    u = sym.Function('u')
+    t, a, p, I = sym.symbols('t, a, p I', real=True)
+
+    def ode(u, t, a, p):
+        """Define ODE: u' = (a + p * t) * u and return residual."""
+        return sym.diff(u, t) + (a + p * t) * u
+
+    # Solve equation
+    eq = ode(u(t), t, a, p)
+    s = sym.dsolve(eq)
+    print(STR_FMT.format('eq', eq))
+    print(STR_FMT.format('s', s))
+
+    # Grab the right hand side of the equality object
+    u = s.rhs
+    print(STR_FMT.format('u', u))
+
+    # Substitute C1 to a defined symbol
+    C1 = sym.Symbol('C1', real=True)
+    u = u.subs('C1', C1)
+
+    # Solve C1 for the initial condition
+    eq = u.subs(t, 0) - I
+    s = sym.solve(eq, C1)
+    u = u.subs(C1, s[0])
+    print(STR_FMT.format('s', s))
+    print(STR_FMT.format('u', u))
+    print(STR_FMT.format('sym.latex(u)', sym.latex(u)))
+
+    # Consistency check: u must fulfill ODE and initial condition
+    print('ODE is fulfilled', sym.simplify(ode(u, t, a, p)))
+    print('u(0) - I', sym.simplify(u.subs(t, 0) - I))
+
+    # Convert u expression to Python numerical function
+    u_func = sym.lambdify([t, I, a, p], u, modules='numpy')
+    help(u_func)
+
+    # Define values to plot for
+    p_values = [0.01, 0.1, 1]
+    a = 1
+    I = 1
+    t = np.linspace(0, 4, 101)
+    u = I * np.exp(-a * t)
+
+    # Plotting
+    fig1, axs1 = plt.subplots(
+        ncols=len(p_values), figsize=(16, 5), gridspec_kw={'wspace': 0.3}
+    )
+    fig2, axs2 = plt.subplots()
+    axs2.set_xlabel('t')
+    axs2.set_ylabel('u_true(t) - u(t)')
+    axs2.set_xlim(0, np.max(t))
+    axs2.set_ylim(-0.16, 0.02)
+
+    for idx, p in enumerate(p_values):
+        # Calculate u(t)
+        u_true = u_func(t, I, a, p)
+        discrep = u_true - u
+
+        # Plotting
+        ax = axs1[idx]
+        ax.set_title(f'p = {p:.2f}')
+        ax.set_xlabel('t')
+        ax.set_ylabel('u(t)')
+        ax.set_xlim(0, np.max(t))
+        ax.set_ylim(0, np.max(u))
+        ax.plot(t, u, 'r-', label='model')
+        ax.plot(t, u_true, 'b--', label='true model')
+        ax.legend()
+
+        axs2.plot(t, discrep, label=f'p = {p:.2f}')
+    axs2.legend()
+
+    # Save figures
+    fig1.savefig(IMGDIR + f'model_error1.png', bbox_inches='tight')
+    fig2.savefig(IMGDIR + f'model_error2.png', bbox_inches='tight')
+
+
+def data_errors() -> None:
+    """
+    Data errors.
+
+    Notes
+    ----------
+    By "data" we mean all input parameters to our model, in our case I and a.
+    The values may contain errors, or at least uncertainty. Ideally, we may
+    have samples of I and a and from these we can fit probability
+    distributions. Assume that I turns out to be normally distributed with mean
+    1 and std 0.2, while a is uni formally distributed in the interval
+    [0.5, 1.5].
+
+    How will the uncertainty in I and a propagate through the model
+    u = I exp{-a t}? The answer can be easily answered using Monte Carlo
+    simulation. For each combination of I and a sample, we compute the
+    corresponding u value for selected values of t. Afterwards, we can for each
+    selected t values, make a histogram of all the computed u values to see
+    what the distribution of u values look like.
+
+    u(t; I, a) becomes a stochastic variable for each t, and I and a are
+    stochastic variables. The mean of the stochastic u(t; I, a) is not equal to
+    u with mean values of the input dtaa, u(t; I=a=1), unless u is linear in I
+    and a.
+
+    Estimating statistical uncertainty in the input data and investigating how
+    the uncertainty propagates to the uncertainty in the response of a
+    differential equation model are key topics in the scientific field called
+    uncertainty quantification, simply known as UQ. Monte Carlo simulation is a
+    general and widely used tool to solve associated statistical problem. The
+    accuracy of the Monte Carlo results increases with increasing number of
+    samples N, typically the error behaves as N⁻¹⸍².
+
+    """
+    # Define number of trials and priors
+    N = 10000
+    I_values = np.random.normal(1, 0.2, N)
+    a_values = np.random.uniform(0.5, 1.5, N)
+
+    # Compute corresponding u values for some t values
+    t_values = [0, 1, 3]
+    u_values = [0] * len(t_values)
+    u_mean = [0] * len(t_values)
+    u_std = [0] * len(t_values)
+
+    # Setup figure
+    fig, axs = plt.subplots(
+        ncols=len(t_values), figsize=(16, 5), gridspec_kw={'wspace': 0.2}
+    )
+
+    for idx, t in enumerate(t_values):
+        # Setup axis
+        ax = axs[idx]
+        ax.set_title(f't = {t}')
+        ax.set_xlabel('u')
+        ax.set_ylabel('Entries (a.u.)')
+        ax.set_xlim(0, 1.8)
+
+        # Compute u samples according to I and a samples
+        u_values[idx] = [I * np.exp(-a * t)
+                         for I, a in zip(I_values, a_values)]
+        u_mean[idx] = np.mean(u_values[idx])
+        u_std[idx] = np.std(u_values[idx])
+
+        # Plot
+        ax.hist(
+            u_values[idx], bins=30, range=(0, 1.8), density=True,
+            facecolor='green', lw=0.7, edgecolor='k'
+        )
+
+    fig.savefig(IMGDIR + f'data_errors.png', bbox_inches='tight')
+
+
+def discretisation_errors() -> None:
+    """
+    Discretisation errors.
+
+    Notes
+    ----------
+    The errors implied by solving the differential equation problem by the
+    θ-rule has been thoroughly analysed in the previous methods. Here are some
+    plots of the error versus time for the Forward Euler, Backward Euler, and
+    Crank-Nicolson schemes for decreasing values of Δt. Since the difference in
+    magnitude between the errors in the CN scheme versus the FE and BN schemes
+    grows significantly as Δt is reduced, the logarithm of the absolute values
+    of the numerical error is plotted as a mesh function.
 
     """
 
