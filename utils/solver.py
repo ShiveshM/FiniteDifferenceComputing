@@ -3,13 +3,16 @@ Solver functions
 
 """
 
+from typing import Tuple
+
 import numpy as np
 
 
 __all__ = ['solver']
 
 
-def solver(I: float, a: float, T: float, dt: float, theta: float):
+def solver(I: float, a: float, T: float, dt: float,
+           theta: float) -> Tuple[float]:
     """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
 
     Parameters

@@ -19,7 +19,7 @@ from utils.solver import solver
 __all__ = ['investigations', 'stability', 'visual_accuracy', 'amp_error',
            'global_error', 'integrated_error', 'truncation_error',
            'consistency_stability_convergence', 'model_errors', 'data_errors',
-           'discretisation_errors']
+           'discretisation_errors', 'rounding_errors', 'exponential_growth']
 
 IMGDIR = './img/chap2/'
 """Path to store images."""
@@ -228,6 +228,17 @@ def visual_accuracy() -> None:
     numerical performance of methods for solving ODEs and PDEs is governed by
     dimensionless parameters that combine mesh sizes with physical parameters.
 
+    For any finite difference approximation, take the Forward Euler difference
+    as an example, and any specific function, take u = exp{-a t}, we may
+    introduce an error fraction
+
+     E = [Dₜ⁺ u]ⁿ / u'(tn) = exp{-a(tn + Δt)) - exp{-a tn) / -a exp{-a tn} Δt
+                           = (1 / (a Δt)) (1 - exp{-a Δt})
+
+    and view E as a function of Δt. We expect that as Δt → 0, E → 1, while E
+    may deviate significantly from unity for large Δt. How the error depends on
+    Δt is best visualised in a graph with a logarithmic axis for Δt.
+
     """
     def calc_amp(p: float, theta: float):
         """Calculate the amplification factor for u'=-a*u.
@@ -272,6 +283,47 @@ def visual_accuracy() -> None:
 
     ax.legend(loc='lower left')
     fig.savefig(IMGDIR + 'amplification_factors.png', bbox_inches='tight')
+
+    # Define difference approximations
+    D_f = lambda u, dt, t: (u(t + dt) - u(t)) / dt
+    D_b = lambda u, dt, t: (u(t) - u(t - dt)) / dt
+    D_c = lambda u, dt, t: (u(t + dt) - u(t - dt)) / (2 * dt)
+
+    # Define symbols
+    a, t, dt, p = sym.symbols('a t dt p')
+
+    # Define exact solution
+    u = lambda t: sym.exp(-a * t)
+    u_sym = sym.exp(-a * t)
+    dudt = sym.diff(u_sym, t)
+
+    # Setup figure
+    fig, ax = plt.subplots()
+    ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
+    ax.set_xlabel('$p=a\Delta t$')
+    ax.set_ylabel('E, error fraction')
+    ax.set_xlim(1E-6, np.power(10, -0.5))
+    ax.set_xscale('log')
+
+    for name, op in zip(['FE', 'BE', 'CN'], [D_f, D_b, D_c]):
+        E = op(u, dt, t) / dudt
+
+        # Set p = a * dt
+        E = sym.simplify(sym.expand(E).subs(a * dt, p))
+        print(STR_FMT.format(f'{name} E = ', f'{E} ≈ {E.series(p, 0, 3)}'))
+
+        # Convert to lambda expr
+        f_E = sym.lambdify([p], E, modules='numpy')
+
+        # Calculate E as a function of p
+        p_values = np.logspace(-6, -0.5, 101)
+        E_v = f_E(p_values)
+
+        # Plot
+        ax.plot(p_values, E_v, label=f'${name}: {sym.latex(E)}$')
+
+    ax.legend()
+    fig.savefig(IMGDIR + 'visual_accuracy.png', bbox_inches='tight')
 
 
 def amp_error() -> None:
@@ -771,7 +823,7 @@ def data_errors() -> None:
             facecolor='green', lw=0.7, edgecolor='k'
         )
 
-    fig.savefig(IMGDIR + f'data_errors.png', bbox_inches='tight')
+    fig.savefig(IMGDIR + 'data_errors.png', bbox_inches='tight')
 
 
 def discretisation_errors() -> None:
@@ -789,6 +841,277 @@ def discretisation_errors() -> None:
     of the numerical error is plotted as a mesh function.
 
     """
+    I = 1
+    a = 1
+    T = 4
+
+    # Schemes
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
+
+    # dt values
+    dt_values = [0.8, 0.4, 0.1, 0.01]
+
+    # Setup figure
+    fig, axs = plt.subplots(
+        2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3, 'wspace': 0.3}
+    )
+
+    for dt_idx, dt in enumerate(dt_values):
+        # Setup axes
+        ax = axs.flat[dt_idx]
+        ax.set_title(f'$\Delta t={dt}$')
+        ax.set_xlim(0, T)
+        ax.set_xlabel('t')
+        ax.set_ylabel('log(abs(numerical / global error))')
+
+        for th in th_dict.keys():
+            u, t = solver(I, a, T, dt, th)
+            u_e = I * np.exp(-a * t)
+            error = u_e - u
+
+            # Exclude fist error entry as it is 0
+            ax.plot(t[1:], np.log(np.abs(error[1:])), label=th_dict[th][1])
+
+        ax.legend(loc='upper right')
+
+    fig.savefig(IMGDIR + 'discretisation_errors.png', bbox_inches='tight')
+
+
+def rounding_errors() -> None:
+    """
+    Rounding errors.
+
+    Notes
+    ----------
+    Real numbers on a computer are represented by floating point numbers, which
+    means that just a finite number of digits are stored and used. Therefore,
+    the floating-point number is an approximation to the underlying real
+    number. When doing arithmetics with floating-point numbers, there will be
+    small approximation errors, called round-off errors or rounding errors,
+    that may or may not accumulate in comprehensive computations.
+
+    The typical level of rounding error from an arithmetic operation with the
+    widely used 64 bit floating-point number is O(1E-16). The big question is
+    if errors at this level accumulate in a given numerical algorithm.
+
+    To investigate this, we can use the Python `Decimal` object in the
+    `decimal` module that allows us to use as many digits in floating point
+    numbers as we like. Here we take 1000 digits as the true answer.
+
+    When computing with numbers around unity in size and doing Nₜ = 40 time
+    steps, we typically get a rounding error of 1E{-d}, where d is the number
+    of digits used. The effect of rounding errors may accumulate if we perform
+    more operations, so increasing the number of time steps to 4000 gives a
+    rounding error of 1E{-d+2}. Also if we compute with numbers that are much
+    larger than unity, we lose accuracy due to rounding errors. For example,
+    for the u values implied by I = 1000 and a = 100 (u ~ 1E3), the rounding
+    errors increase to about 1E{-d+3}. A rough model for the size of rounding
+    errors is 1E{-d+q+r}, where d is the number of digits, the number of time
+    steps is of the order 1Eq time steps, and the size of the numbers in the
+    arithmetic expressions are of order 1Er.
+
+    We realise that rounding errors are at the lowest possible level if we
+    scale the differential equation model, so the numbers entering the
+    computations are of unity in size, and if we take a small number of steps.
+    In general rounding errors are negligible in comparison with other errors
+    in differential equation models.
+
+    """
+    import decimal
+    from decimal import Decimal
+    from typing import Tuple
+
+    def solver_decimal(I: float, a: float, T: float, dt: float,
+                       theta: float) -> Tuple[float]:
+        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
+
+        Parameters
+        ----------
+        I : Initial condition.
+        a : Constant coefficient.
+        T : Maximum time to compute to.
+        dt : Step size.
+        theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+
+        Returns
+        ----------
+        u : Mesh function.
+        t : Mesh points.
+
+        """
+        # Initialise data structures
+        I = Decimal(I)
+        a = Decimal(a)
+        T = Decimal(T)
+        dt = Decimal(dt)
+        theta = Decimal(theta)
+        Nt = int(round(T / dt))      # Number of time intervals
+        u = np.zeros(Nt + 1, dtype=np.object)      # Mesh function
+        t = np.linspace(0, float(Nt * dt), Nt + 1) # Mesh points
+
+        # Calculate mesh function using difference equation
+        # (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
+        u[0] = I
+        for n_idx in range(Nt):
+            u[n_idx + 1] = (1 - (1 - theta) * a * dt) / \
+                (1 + theta * a * dt) * u[n_idx]
+        return u, t
+
+    # Initialisation
+    I = 1
+    a = 1
+    T = 4
+    dt = 0.1
+    digit_values = [4, 16, 64, 128]
+
+    # Use 1000 digits for "exact" calculation
+    decimal.getcontext().prec = 1000
+    u_e, t = solver_decimal(I=I, a=a, T=T, dt=dt, theta=0.5)
+
+    for digits in digit_values:
+        decimal.getcontext().prec = digits
+        u, t = solver_decimal(I=I, a=a, T=T, dt=dt, theta=0.5)
+        error = u_e - u
+        print(f'{digits:4} digits, {len(u) - 1} steps, max abs(error): ' \
+              f'{np.max(np.abs(error)):.2E}')
+
+
+def exponential_growth() -> None:
+    """
+    Explore θ-rule for exponential growth.
+
+    Notes
+    ----------
+    Solve the ODE u' = -a u with a < 0 such that the ODE models exponential
+    growth instead of decay. Investigate numerical artifacts and non-physical
+    solution behaviour.
+
+    """
+    I = 1
+    a = -1
+    T = 2.5
+
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
+
+    for th in th_dict.keys():
+        fig, axs = plt.subplots(
+            2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
+        )
+        fig.suptitle(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95)
+        for dt_idx, dt in enumerate((1.25, 0.75, 0.5, 0.1)):
+            ax = axs.flat[dt_idx]
+            ax.set_title('{}, dt={:g}'.format(th_dict[th][0], dt))
+            ax.set_ylim(0, 15)
+            ax.set_xlim(0, T)
+            ax.set_xlabel('t')
+            ax.set_ylabel('u')
+
+            # Solve
+            u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
+
+            # Calculate exact solution
+            u_exact = lambda t, I, a: I * np.exp(-a * t)
+            t_e = np.linspace(0, T, 1001)
+            u_e = u_exact(t_e, I, a)
+
+            # Plot with red dashes w/ circles
+            ax.plot(t, u, 'r--o', label='numerical')
+
+            # Plot with blue line
+            ax.plot(t_e, u_e, 'b-', label='exact')
+            ax.legend()
+
+        # Save figure
+        fig.savefig(
+            IMGDIR + f'{th_dict[th][1]}_growth.png', bbox_inches='tight'
+        )
+
+    def calc_amp(p: float, theta: float):
+        """Calculate the amplification factor for u'=a*u.
+
+        Parameters
+        ----------
+        p : -a Δt
+        theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+
+        Returns
+        ----------
+        amp : Amplification factor.
+
+        """
+        return (1 + (1 - theta) * p) / (1 - theta * p)
+
+    fig, ax = plt.subplots()
+    ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$')
+    ax.set_xlabel('$p=-a\Delta t$')
+    ax.set_ylabel('Amplification factor')
+    ax.set_xlim(0, 3)
+    ax.set_ylim(-20, 20)
+    ax.grid(c='k', ls='--', alpha=0.3)
+
+    # Mesh grid for p = -a Δt
+    p = np.linspace(0, 3, 20)
+
+    for th in th_dict.keys():
+        # Calculate amplification factor
+        amp = calc_amp(p, th)
+
+        # Plot
+        ax.plot(p, amp, th_dict[th][2], label=th_dict[th][0])
+
+    # Exact solution
+    amp_exact = np.exp(p)
+    ax.plot(p, amp_exact, 'k-o', label='exact')
+
+    ax.legend(loc='lower left')
+    fig.savefig(
+        IMGDIR + 'amplification_factors_growth.png', bbox_inches='tight'
+    )
+
+    I = 1
+    a = np.linspace(0.01, 4, 22)
+    dt = np.linspace(0.01, 2.5, 22)
+    T = 6
+
+    for th in th_dict.keys():
+        # Initialise B data structure
+        B = np.zeros((len(a), len(dt)))
+
+        # Solve for each a, Δt
+        for a_idx, a_val in enumerate(a):
+            for dt_idx, dt_val in enumerate(dt):
+                u, t = solver(I, -a_val, T, dt_val, th)
+
+                # Does u have the right monotone decay properties?
+                is_monotone = True
+                for n in range(1, len(u)):
+                    if u[n] < u[n - 1]:
+                        is_monotone = False
+                        break
+                B[a_idx, dt_idx] = 1. if is_monotone else 0.
+
+        # Meshgrid
+        a_grid, dt_grid = np.meshgrid(a, dt, indexing='ij')
+
+        # Plot
+        fig, ax = plt.subplots()
+        ax.set_title('{} oscillatory region '.format(th_dict[th][0]) +
+                     r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$')
+        ax.set_xlabel('-a')
+        ax.set_ylabel('dt')
+        ax.set_xlim(0, np.max(a))
+        ax.set_ylim(0, np.max(dt))
+        ax.grid(c='k', ls='--', alpha=0.3)
+        B = B.reshape(len(a), len(dt))
+        ax.contourf(a_grid, dt_grid, B, levels=[0., 0.1], hatches='XX',
+                    colors='grey', alpha=0.3, lines='k')
+        fig.savefig(
+            IMGDIR + f'{th_dict[th][1]}_osc_growth.png', bbox_inches='tight'
+        )
 
 
 def main() -> None:

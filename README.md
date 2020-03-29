@@ -23,6 +23,7 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Model errors
     * Data errors
     * Discretisation errors
+    * Rounding errors
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
