@@ -19,6 +19,10 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Global error
     * Global integrated error
     * Truncation error
+    * Consistency, stability, and convergence
+    * Model errors
+    * Data errors
+    * Discretisation errors
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
