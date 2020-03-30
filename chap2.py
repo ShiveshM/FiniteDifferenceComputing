@@ -19,7 +19,8 @@ from utils.solver import solver
 __all__ = ['investigations', 'stability', 'visual_accuracy', 'amp_error',
            'global_error', 'integrated_error', 'truncation_error',
            'consistency_stability_convergence', 'model_errors', 'data_errors',
-           'discretisation_errors', 'rounding_errors', 'exponential_growth']
+           'discretisation_errors', 'rounding_errors', 'exponential_growth',
+           'explore_rounding_err']
 
 IMGDIR = './img/chap2/'
 """Path to store images."""
@@ -59,7 +60,7 @@ def investigations() -> None:
     th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
                0.5: ('Crank-Nicolson', 'cn')}
 
-    for th in th_dict.keys():
+    for th in th_dict:
         fig, axs = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
         )
@@ -174,14 +175,14 @@ def stability() -> None:
     th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
                0.5: ('Crank-Nicolson', 'cn')}
 
-    for th in th_dict.keys():
+    for th in th_dict:
         # Initialise B data structure
         B = np.zeros((len(a), len(dt)))
 
         # Solve for each a, Δt
         for a_idx, a_val in enumerate(a):
             for dt_idx, dt_val in enumerate(dt):
-                u, t = solver(I, a_val, T, dt_val, th)
+                u, _ = solver(I, a_val, T, dt_val, th)
 
                 # Does u have the right monotone decay properties?
                 is_monotone = True
@@ -241,7 +242,8 @@ def visual_accuracy() -> None:
 
     """
     def calc_amp(p: float, theta: float):
-        """Calculate the amplification factor for u'=-a*u.
+        """
+        Calculate the amplification factor for u'=-a*u.
 
         Parameters
         ----------
@@ -270,7 +272,7 @@ def visual_accuracy() -> None:
     # Mesh grid for p = a Δt
     p = np.linspace(0, 3, 20)
 
-    for th in th_dict.keys():
+    for th in th_dict:
         # Calculate amplification factor
         amp = calc_amp(p, th)
 
@@ -302,7 +304,8 @@ def visual_accuracy() -> None:
     ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
     ax.set_xlabel('$p=a\Delta t$')
     ax.set_ylabel('E, error fraction')
-    ax.set_xlim(1E-6, np.power(10, -0.5))
+    ax.set_xlim(1E-6, 1)
+    ax.set_ylim(0.8, 1.2)
     ax.set_xscale('log')
 
     for name, op in zip(['FE', 'BE', 'CN'], [D_f, D_b, D_c]):
@@ -316,7 +319,7 @@ def visual_accuracy() -> None:
         f_E = sym.lambdify([p], E, modules='numpy')
 
         # Calculate E as a function of p
-        p_values = np.logspace(-6, -0.5, 101)
+        p_values = np.logspace(-6, 1, 101)
         E_v = f_E(p_values)
 
         # Plot
@@ -866,7 +869,7 @@ def discretisation_errors() -> None:
         ax.set_xlabel('t')
         ax.set_ylabel('log(abs(global error))')
 
-        for th in th_dict.keys():
+        for th in th_dict:
             u, t = solver(I, a, T, dt, th)
             u_e = I * np.exp(-a * t)
             error = u_e - u
@@ -925,7 +928,8 @@ def rounding_errors() -> None:
 
     def solver_decimal(I: float, a: float, T: float, dt: float,
                        theta: float) -> Tuple[float]:
-        """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
+        """
+        Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
 
         Parameters
         ----------
@@ -997,11 +1001,13 @@ def exponential_growth() -> None:
                1: ('Backward Euler', 'be', 'g-v'),
                0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
-    for th in th_dict.keys():
+    for th in th_dict:
         fig, axs = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
         )
-        fig.suptitle(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95)
+        fig.suptitle(
+            r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+        )
         for dt_idx, dt in enumerate((1.25, 0.75, 0.5, 0.1)):
             ax = axs.flat[dt_idx]
             ax.set_title('{}, dt={:g}'.format(th_dict[th][0], dt))
@@ -1027,11 +1033,13 @@ def exponential_growth() -> None:
 
         # Save figure
         fig.savefig(
-            IMGDIR + f'/growth/{th_dict[th][1]}_growth.png', bbox_inches='tight'
+            IMGDIR + f'/growth/{th_dict[th][1]}_growth.png',
+            bbox_inches='tight'
         )
 
     def calc_amp(p: float, theta: float):
-        """Calculate the amplification factor for u'=a*u.
+        """
+        Calculate the amplification factor for u'=a*u.
 
         Parameters
         ----------
@@ -1056,7 +1064,7 @@ def exponential_growth() -> None:
     # Mesh grid for p = -a Δt
     p = np.linspace(0, 3, 20)
 
-    for th in th_dict.keys():
+    for th in th_dict:
         # Calculate amplification factor
         amp = calc_amp(p, th)
 
@@ -1069,7 +1077,8 @@ def exponential_growth() -> None:
 
     ax.legend(loc='lower left')
     fig.savefig(
-        IMGDIR + '/growth/amplification_factors_growth.png', bbox_inches='tight'
+        IMGDIR + '/growth/amplification_factors_growth.png',
+        bbox_inches='tight'
     )
 
     I = 1
@@ -1077,7 +1086,7 @@ def exponential_growth() -> None:
     dt = np.linspace(0.01, 2.5, 22)
     T = 6
 
-    for th in th_dict.keys():
+    for th in th_dict:
         # Initialise B data structure
         B = np.zeros((len(a), len(dt)))
 
@@ -1134,12 +1143,12 @@ def exponential_growth() -> None:
         ax.set_xlabel('t')
         ax.set_ylabel('log(abs(global error))')
 
-        for th in th_dict.keys():
+        for th in th_dict:
             u, t = solver(I, a, T, dt, th)
             u_e = I * np.exp(-a * t)
             error = u_e - u
 
-            # Exclude fist error entry as it is 0
+            # Exclude first error entry as it is 0
             ax.plot(t[1:], np.log(np.abs(error[1:])), label=th_dict[th][1])
 
         ax.legend(loc='upper right')
@@ -1148,6 +1157,146 @@ def exponential_growth() -> None:
         IMGDIR + '/growth/discretisation_errors_growth.png',
         bbox_inches='tight'
     )
+
+    # Define difference approximations
+    D_f = lambda u, dt, t: (u(t + dt) - u(t)) / dt
+    D_b = lambda u, dt, t: (u(t) - u(t - dt)) / dt
+    D_c = lambda u, dt, t: (u(t + dt) - u(t - dt)) / (2 * dt)
+
+    # Define symbols
+    a, t, dt, p = sym.symbols('a t dt p')
+
+    # Define exact solution
+    u = lambda t: sym.exp(a * t)
+    u_sym = sym.exp(a * t)
+    dudt = sym.diff(u_sym, t)
+
+    # Setup figure
+    fig, ax = plt.subplots()
+    ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$')
+    ax.set_xlabel('$p=-a\Delta t$')
+    ax.set_ylabel('E, error fraction')
+    ax.set_xlim(1E-6, 1)
+    ax.set_ylim(0.8, 1.2)
+    ax.set_xscale('log')
+
+    for name, op in zip(['FE', 'BE', 'CN'], [D_f, D_b, D_c]):
+        E = op(u, dt, t) / dudt
+
+        # Set p = -a * dt
+        E = sym.simplify(sym.expand(E).subs(a * dt, p))
+        print(STR_FMT.format(f'{name} E = ', f'{E} ≈ {E.series(p, 0, 3)}'))
+
+        # Convert to lambda expr
+        f_E = sym.lambdify([p], E, modules='numpy')
+
+        # Calculate E as a function of p
+        p_values = np.logspace(-6, 1, 101)
+        E_v = f_E(p_values)
+
+        # Plot
+        ax.plot(p_values, E_v, label=f'${name}: {sym.latex(E)}$')
+
+    ax.legend()
+    fig.savefig(
+        IMGDIR + '/growth/visual_accuracy_growth.png', bbox_inches='tight'
+    )
+
+
+def explore_rounding_err() -> None:
+    """
+    Exploring rounding errors in numerical calculus.
+
+    Notes
+    ----------
+    a) Compute the absolute values of the errors in the numerical derivative of
+       exp{-t} at t = ½ for forward difference, backward difference, and a
+       centered difference, for Δt = 2^{-k}, k = 0,4,8,12,...,60. When do
+       rounding errors destroy the accuracy?
+    b) Compute the absolute values of the errors in the numerical approximation
+       of ∫₀⁴ exp{-t} dt using the Trapezoidal and the Midpoint integration
+       methods. Make a table of the errors for n = 2^k intervals, k =
+       1,3,5,...,21. Is there any impact of the rounding errors?
+
+    """
+    from typing import Callable
+
+    # Define difference approximations
+    D_f = lambda u, dt, t: (u(t + dt) - u(t)) / dt
+    D_b = lambda u, dt, t: (u(t) - u(t - dt)) / dt
+    D_c = lambda u, dt, t: (u(t + dt) - u(t - dt)) / (2 * dt)
+
+    # Definitions
+    u = lambda t: np.exp(-t)
+    dudt = u
+    t = 0.5
+    k_values = range(0, 63, 4)
+
+    print('k    forward backward centered')
+    for k in k_values:
+        dt = 2**(-k)
+        fwd_err = abs(dudt(t) - D_f(u, dt, t))
+        bwd_err = abs(dudt(t) - D_b(u, dt, t))
+        cen_err = abs(dudt(t) - D_c(u, dt, t))
+        print(f'{k:3} {fwd_err:.2E} {bwd_err:.2E} {cen_err:.2E}')
+
+    def trapezoidal(f: Callable[[float], float], a: float, b: float, n: int):
+        """
+        Trapezoidal rule for integral of f from a to b using n intervals.
+
+        Parameters
+        ----------
+        f : Function to integrate
+        a : Lower bound.
+        b : Upper bound.
+        n : Number of intervals.
+
+        Returns
+        ----------
+        integral : Integral of f(x) from x=a to x=b.
+
+        """
+        h = float(b - a) / n
+        I = 0.5 * (f(a) + f(b))
+        for i in range(1, n):
+            I += f(a + i * h)
+        return h * I
+
+    def midpoint(f: Callable[[float], float], a: float, b: float, n: int):
+        """
+        Midpoint-rule for integral of f from a to b using n intervals.
+
+        Parameters
+        ----------
+        f : Function to integrate
+        a : Lower bound.
+        b : Upper bound.
+        n : Number of intervals.
+
+        Returns
+        ----------
+        integral : Integral of f(x) from x=a to x=b.
+
+        """
+        h = float(b - a) / n
+        I = 0
+        for i in range(n):
+            I += f(a + (i + 0.5) * h)
+        return h * I
+
+    # Definitions
+    u = lambda t: np.exp(-t)
+    U = lambda a, b: -u(b) - (-u(a))
+    a = 0
+    b = 4
+
+    print('k  trapezoidal midpoint')
+    for k in range(1, 23, 2):
+        n = 2**k
+        err_trap = abs(U(a, b) - trapezoidal(u, a, b, n))
+        err_midp = abs(U(a, b) - midpoint(u, a, b, n))
+        print(f'{k:3} {err_trap:.2E} {err_midp:.2E}')
+
 
 def main() -> None:
     """Main program, used when run as a script."""
@@ -1166,6 +1315,9 @@ def main() -> None:
         print('------', f'\nRunning "{f}"')
         globals()[f]()
         print('------')
+
+
+main.__doc__ = __doc__
 
 
 if __name__ == "__main__":

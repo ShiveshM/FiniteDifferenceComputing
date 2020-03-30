@@ -12,8 +12,9 @@ __all__ = ['solver']
 
 
 def solver(I: float, a: float, T: float, dt: float,
-           theta: float) -> Tuple[float]:
-    """Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
+           theta: float, c: float = 0) -> Tuple[float]:
+    """
+    Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
 
     Parameters
     ----------
@@ -39,5 +40,6 @@ def solver(I: float, a: float, T: float, dt: float,
     u[0] = I
     for n_idx in range(Nt):
         u[n_idx + 1] = (1 - (1 - theta) * a * dt) / \
-            (1 + theta * a * dt) * u[n_idx]
+            (1 + theta * a * dt) * u[n_idx] + \
+            (c * dt) / (1 + theta * a * dt)
     return u, t
