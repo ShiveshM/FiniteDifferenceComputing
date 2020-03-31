@@ -501,7 +501,7 @@ def unifying() -> None:
                   [Dₜ u]ⁿ⁺¹⸍² = θ [-a u]ⁿ⁺¹ + (1 - θ) [-a u]ⁿ
 
     """
-    from utils.solver import solver
+    from utils.solver import solver_chap2 as solver
 
     I = 1
     a = 2

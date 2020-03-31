@@ -13,7 +13,7 @@ import numpy as np
 import sympy as sym
 from matplotlib import pyplot as plt
 
-from utils.solver import solver
+from utils.solver import solver_chap2 as solver
 
 
 __all__ = ['investigations', 'stability', 'visual_accuracy', 'amp_error',
