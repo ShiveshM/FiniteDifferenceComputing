@@ -9,6 +9,8 @@ Problem formulation: Using finite difference methods find u(t) such that:
 
 """
 
+from typing import List
+
 import numpy as np
 import sympy as sym
 from matplotlib import pyplot as plt
@@ -251,7 +253,88 @@ def convergence() -> None:
     values as i → m - 2. The final rₘ₋₂ can then be taken as the convergence
     rate.
 
+    The strong practical application of computing convergence rates is for
+    verification: wrong convergence rates point to errors in the code, and
+    correct convergence rates provide strong support for a correct
+    implementation. Bugs in the code can easily destroy the expected
+    convergence rate.
+
+    The example here used the manufactured solution uₑ(t) = sin(t) exp{-2t} and
+    a(t) = t². This implies we must fit b as b(t) = u'(t) + a(t) u(t). We first
+    compute with SymPy expressions and then convert the exact solution, a, and
+    b to Python functions that we can use in subsequent numerical computing.
+
     """
+    # Created manufactured solution with SymPy
+    t = sym.Symbol('t')
+    u_e_sym = sym.sin(t) * sym.exp(-2 * t)
+    a_sym = t**2
+    b_sym = sym.diff(u_e_sym, t) + a_sym * u_e_sym
+
+    # Turn SymPy expressions into Python functions
+    u_exact = sym.lambdify([t], u_e_sym, modules='numpy')
+    a = sym.lambdify([t], a_sym, modules='numpy')
+    b = sym.lambdify([t], b_sym, modules='numpy')
+
+    def compute_rates(dt_values: List[float],
+                      E_values: List[float]) -> List[float]:
+        """
+        Estimate the convergence rate.
+
+        Parameters
+        ----------
+        dt_values : List of dt values.
+        E_values : List of errors.
+
+        Returns
+        ----------
+        r : Convergence rates.
+
+        """
+        m = len(dt_values)
+
+        # Compute the convergence rates
+        # rᵢ₋₁ = ln(Eᵢ₋₁ / Eᵢ) / ln(Δtᵢ₋₁ / Δtᵢ)
+        r = [np.log(E_values[i - 1] / E_values[i]) /
+             np.log(dt_values[i - 1] / dt_values[i])
+             for i in range(1, m)]
+
+        # Round to two d.p.
+        r = [round(r_, 2) for r_ in r]
+        return r
+
+    T = 6
+    I = u_exact(0)
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
+
+    for theta in th_dict:
+        print(f'{th_dict[theta][0]}')
+        E_values = []
+        for dt in dt_values:
+            # Solve for mesh function
+            u, t = solver(I=I, a=a, b=b, T=T, dt=dt, theta=theta)
+
+            # Compute error
+            u_e = u_exact(t)
+            e = u_e - u
+            E = np.sqrt(dt * np.sum(e**2))
+            E_values.append(E)
+
+        # Compute convergence rates
+        r = compute_rates(dt_values, E_values)
+        print(STR_FMT.format('r', f'{r}'))
+
+        # Test final entry with expected convergence rate
+        expected_rate = 2 if theta == 0.5 else 1
+        tol = 0.1
+        diff = np.abs(expected_rate - r[-1])
+        if diff > tol:
+            raise AssertionError(f'Tolerance not reach, diff = {diff}')
 
 
 def main() -> None:

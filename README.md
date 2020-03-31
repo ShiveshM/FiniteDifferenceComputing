@@ -26,6 +26,9 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Rounding errors
     * Exponential growth
 3. **Generalisations**
+    * Include variable coefficient and source term
+    * Verification
+    * Convergence
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
