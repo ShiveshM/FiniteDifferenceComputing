@@ -18,7 +18,7 @@ from matplotlib import pyplot as plt
 from utils.solver import solver_chap3 as solver
 
 
-__all__ = ['generalisation', 'verification', 'convergence']
+__all__ = ['generalisation', 'verification', 'convergence', 'systems']
 
 IMGDIR = './img/chap3/'
 """Path to store images."""
@@ -101,13 +101,13 @@ def generalisation() -> None:
                             [D̄ₜ u = -a ūᵗʼᶿ + b]ⁿ⁺ᶿ
                             [D̄ₜ u = -ā ū + b̄ᵗʼᶿ]ⁿ⁺ᶿ
 
-    Deriving the 0-rule formula when averaging over a and b, we get
+    Deriving the θ-rule formula when averaging over a and b, we get
 
-        (uⁿ⁺¹ - uⁿ) / Δt = 0(-aⁿ⁺¹ uⁿ⁺¹ + bⁿ⁺¹) + (1 - 0)(-aⁿ uⁿ + bⁿ)
+        (uⁿ⁺¹ - uⁿ) / Δt = θ(-aⁿ⁺¹ uⁿ⁺¹ + bⁿ⁺¹) + (1 - θ)(-aⁿ uⁿ + bⁿ)
 
     Solving for uⁿ⁺¹,
 
-     uⁿ⁺¹ = ((1 - Δt(1 - 0)aⁿ) uⁿ + Δt(0 bⁿ⁺¹ + (1 - 0)bⁿ)) / (1 + Δt 0 aⁿ⁺¹)
+     uⁿ⁺¹ = ((1 - Δt(1 - θ)aⁿ) uⁿ + Δt(θ bⁿ⁺¹ + (1 - θ)bⁿ)) / (1 + Δt θ aⁿ⁺¹)
 
     Here, we start by verifying a constant solution, where u = C. We choose any
     a(t) and set b(t) = a(t) C and I = C.
@@ -133,7 +133,7 @@ def generalisation() -> None:
     tol = 1E-14
     diff = np.max(np.abs(u_e - u))
     if diff > tol:
-        raise AssertionError(f'Tolerance not reach, diff = {diff}')
+        raise AssertionError(f'Tolerance not reached, diff = {diff}')
 
 
 def verification() -> None:
@@ -210,7 +210,7 @@ def verification() -> None:
     tol = 1E-14
     diff = np.max(np.abs(u_e - u))
     if diff > tol:
-        raise AssertionError(f'Tolerance not reach, diff = {diff}')
+        raise AssertionError(f'Tolerance not reached, diff = {diff}')
 
 
 def convergence() -> None:
@@ -334,7 +334,102 @@ def convergence() -> None:
         tol = 0.1
         diff = np.abs(expected_rate - r[-1])
         if diff > tol:
-            raise AssertionError(f'Tolerance not reach, diff = {diff}')
+            raise AssertionError(f'Tolerance not reached, diff = {diff}')
+
+
+def systems() -> None:
+    """
+    Extension to systems of ODEs.
+
+    Notes
+    ----------
+    Many ODE models involve more than one unknown function and more than one
+    equation. Here is an example of two unknown functions u(t) and v(t)
+
+                u' = a u + b v             v' = c u + d v
+
+    for constants a, b, c, d. Applying the Forward Euler method to each
+    equation results in a simple updating formula
+
+                       uⁿ⁺¹ = uⁿ + Δt(a uⁿ + b vⁿ)
+                       vⁿ⁺¹ = vⁿ + Δt(c uⁿ + d vⁿ)
+
+    On the other hand, the Crank-Nicolson and Backward Euler schemes result in
+    a 2x2 linear system for the new unknowns. The latter scheme becomes
+
+                       uⁿ⁺¹ = uⁿ + Δt(a uⁿ⁺¹ + b vⁿ⁺¹)
+                       vⁿ⁺¹ = vⁿ + Δt(c uⁿ⁺¹ + d vⁿ⁺¹)
+
+    Collecting uⁿ⁺¹ as well as vⁿ⁺¹ on the left-hand side results in
+
+                        (1 - Δt a)uⁿ⁺¹ + b vⁿ⁺¹ = uⁿ
+                        c uⁿ⁺¹ + (1 - Δt d)vⁿ⁺¹ = vⁿ
+
+    which is a system of two coupled, linear, algebraic equations in two
+    unknowns. These equations can be solved algebraically resulting in explicit
+    forms for uⁿ⁺¹ and vⁿ⁺¹ that can be directly implemented. For a system of
+    ODEs with many equations and unknowns, one will express the coupled
+    equations at each time level in matrix form and call software for numerical
+    solution of linear systems of equations.
+
+    Deriving the θ-rule formula we get
+
+           (uⁿ⁺¹ - uⁿ) / Δt = θ(a uⁿ⁺¹ + b vⁿ⁺¹) + (1 - θ)(a uⁿ + b vⁿ)
+           (vⁿ⁺¹ - vⁿ) / Δt = θ(c uⁿ⁺¹ + d vⁿ⁺¹) + (1 - θ)(c uⁿ + v uⁿ)
+
+    Collecting uⁿ⁺¹ as well as vⁿ⁺¹ on the left-hand side results in
+
+        (Δt a θ - 1) uⁿ⁺¹ + b Δt θ vⁿ⁺¹ = (a Δt(θ - 1) - 1)uⁿ + b Δt(θ - 1)vⁿ
+        c Δt θ uⁿ⁺¹ + (d Δt θ - 1) vⁿ⁺¹ =  c Δt(θ - 1)uⁿ + (d Δt(θ - 1) - 1)vⁿ
+
+    Which can be solved for uⁿ⁺¹ and vⁿ⁺¹ at each time step, n.
+
+    """
+    import scipy.linalg
+
+    # Definitions
+    I = 1
+    T = 4
+    dt = 0.1
+    Nt = int(T / dt)
+    theta = 0.5
+    a = -1
+    b = -2
+    c = 3
+    d = -1
+    u_exact = lambda t: (1/3) * np.exp(-t) * \
+        (3 * np.cos(np.sqrt(6) * t) - np.sqrt(6) * np.sin(np.sqrt(6) * t))
+    v_exact = lambda t: (1/2) * np.exp(-t) * \
+        (2 * np.cos(np.sqrt(6) * t) + np.sqrt(6) * np.sin(np.sqrt(6) * t))
+
+    # Define mesh functions and points
+    u = np.zeros(Nt + 1)
+    v = np.zeros(Nt + 1)
+    t = np.linspace(0, Nt * dt, Nt + 1)
+    u[0] = I
+    v[0] = I
+
+    # Solve using difference equations
+    # (Δt a θ - 1) uⁿ⁺¹ + b Δt θ vⁿ⁺¹ = (a Δt(θ - 1) - 1)uⁿ + b Δt(θ - 1)vⁿ
+    # c Δt θ uⁿ⁺¹ + (d Δt θ - 1) vⁿ⁺¹ =  c Δt(θ - 1)uⁿ + (d Δt(θ - 1) - 1)vⁿ
+    A = [[dt * a * theta - 1, b * dt * theta],
+         [c * dt * theta, d * dt * theta - 1]]
+    for n in range(Nt):
+        B = [(a * dt * (theta - 1) - 1) * u[n] + b * dt * (theta - 1) * v[n],
+             c * dt * (theta - 1) * u[n] + (d * dt * (theta - 1) - 1) * v[n]]
+        u[n + 1], v[n + 1] = scipy.linalg.solve(A, B)
+    print(STR_FMT.format('u', u))
+    print(STR_FMT.format('v', v))
+
+    # Compute error
+    u_e = u_exact(t)
+    e = u_e - u
+
+    # Assert that max deviation is below tolerance
+    tol = 1E-2
+    diff = np.max(np.abs(u_e - u))
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}')
 
 
 def main() -> None:

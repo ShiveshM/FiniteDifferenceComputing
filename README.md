@@ -29,10 +29,12 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Include variable coefficient and source term
     * Verification
     * Convergence
+    * Systems of ODEs
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
 * [`NumPy`](http://www.numpy.org/)
+* [`SciPy`](https://www.scipy.org/)
 * [`SymPy`](https://www.sympy.org/)
 * [`Matplotlib`](https://matplotlib.org/)
 
