@@ -6,19 +6,24 @@ Computing with Exponential Decay Models".
 
 Problem formulation: Using finite difference methods find u(t) such that:
            u'(t) = -a(t) u(t) + b(t)     t ∈ (0, T]     u(0) = I       (1)
+               u'(t) = f(u, t)     t ∈ (0, T]     u(0) = I             (2)
 
 """
 
+from functools import partial
 from typing import List
 
 import numpy as np
 import sympy as sym
+import scipy.linalg
+import scipy.optimize
 from matplotlib import pyplot as plt
 
 from utils.solver import solver_chap3 as solver
 
 
-__all__ = ['generalisation', 'verification', 'convergence', 'systems']
+__all__ = ['generalisation', 'verification', 'convergence', 'systems',
+           'generic_FO_ODE']
 
 IMGDIR = './img/chap3/'
 """Path to store images."""
@@ -385,8 +390,6 @@ def systems() -> None:
     Which can be solved for uⁿ⁺¹ and vⁿ⁺¹ at each time step, n.
 
     """
-    import scipy.linalg
-
     # Definitions
     I = 1
     T = 4
@@ -420,6 +423,106 @@ def systems() -> None:
         u[n + 1], v[n + 1] = scipy.linalg.solve(A, B)
     print(STR_FMT.format('u', u))
     print(STR_FMT.format('v', v))
+
+    # Compute error
+    u_e = u_exact(t)
+    e = u_e - u
+
+    # Assert that max deviation is below tolerance
+    tol = 1E-2
+    diff = np.max(np.abs(u_e - u))
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}')
+
+
+def generic_FO_ODE() -> None:
+    """
+    Generic first-order ODEs.
+
+    Notes
+    ----------
+    We now turn the attention to general, nonlinear ODEs and systems of such
+    ODEs. Our focus is on numerical methods that can be readily reused for
+    discretisation of PDEs, and diffusion PDEs in particular.
+
+    ODEs are commonly written in the generic form
+
+                           u' = f(u, t),        u(0) = I
+
+    where f(u, t) is some prescribed function. The unknown u may either be a
+    scalar function of time t, or a vector values function of t in the case of
+    a system of ODEs with m unknown components
+
+                    u(t) = (u⁽⁰⁾(t), u⁽¹⁾(t), ..., u⁽ᵐ⁻¹⁾(t))
+
+    In that case, the right-hand side is a vector-valued function with m
+    components
+
+            f(u, t) = (f⁽⁰⁾(u⁽⁰⁾(t), u⁽¹⁾(t), ..., u⁽ᵐ⁻¹⁾(t)),
+                       f⁽¹⁾(u⁽⁰⁾(t), u⁽¹⁾(t), ..., u⁽ᵐ⁻¹⁾(t)),
+                       ...
+                       f⁽ᵐ⁻¹⁾(u⁽⁰⁾(t), u⁽¹⁾(t), ..., u⁽ᵐ⁻¹⁾(t)))
+
+    Actually, any system of ODEs can be written in the form (2), but
+    higher-order ODEs then need auxiliary unknown functions to enable
+    conversion to a first-order system.
+
+    The θ-rule scheme applied to u' = f(u, t) becomes
+
+            (uⁿ⁺¹ - uⁿ) / Δt = θ f(uⁿ⁺¹, t{n+1}) + (1 - θ) f(uⁿ, tn})
+
+    Bring the unknown uⁿ⁺¹ to the left-hand side and the known terms on the
+    right-hand side gives
+
+            uⁿ⁺¹ - Δt θ f(uⁿ⁺¹, t{n+1}) = uⁿ + Δt(1 - θ) f(uⁿ, tn)
+
+    For a general f (not linear in u), this equation is nonlinear in the
+    unknown uⁿ⁺¹ unless θ = 0. For a scalar ODE (m = 1), we have to solve a
+    single nonlinear algebraic equation for uⁿ⁺¹, while for a system of ODEs,
+    we get a system of coupled, nonlinear algebraic equations. Newton's method
+    is a popular solution approach in both cases. Note that with the Forward
+    Euler scheme (θ = 0), we do not have to deal with nonlinear equations,
+    because in that case we have an explicit updating formula for uⁿ⁺¹. This is
+    known as an explicit scheme. With θ ≠ 0, we have to solve (systems of)
+    algebraic equations, and the scheme is said to be implicit.
+
+    Here we demonstrate using the ODE u'(t) = u(t)² - 2, u(0) = 1. Then,
+
+            uⁿ⁺¹ - Δt θ ((uⁿ⁺¹)² - 2) = uⁿ + Δt(1 - θ) ((uⁿ)² - 2)
+          y = Δt θ (uⁿ⁺¹)² - uⁿ⁺¹ + Δt (uⁿ)² (1 - θ) + uⁿ - 2 Δt = 0
+
+    The derivative of this can be used to solve for uⁿ⁺¹ using Newton's method
+
+                        dy/duⁿ⁺¹ = 2 Δt θ uⁿ⁺¹ - 1
+
+    """
+    # Definitions
+    I = 1
+    T = 4
+    dt = 0.1
+    Nt = int(T / dt)
+    theta = 0.5
+    sqrt2 = np.sqrt(2)
+    f_ut = lambda u, t: u(t)**2 - 2
+    u_exact = lambda t: (2 + sqrt2 + (-2 + sqrt2) * np.exp(2 * sqrt2 * t)) / \
+        (1 + sqrt2 + (-1 + sqrt2) * np.exp(2 * sqrt2 * t))
+
+    # Define mesh functions and points
+    u = np.zeros(Nt + 1)
+    t = np.linspace(0, Nt * dt, Nt + 1)
+    u[0] = I
+
+    # Solve using difference equation
+    # uⁿ⁺¹ - Δt θ f(uⁿ⁺¹, t{n+1}) = uⁿ + Δt(1 - θ) f(uⁿ, tn)
+    # y = Δt θ (uⁿ⁺¹)² - uⁿ⁺¹ + Δt (uⁿ)² (1 - θ) + uⁿ - 2 Δt = 0
+    y = lambda u1, u0: dt * theta * u1**2 - u1 + dt * u0**2 * (1 - theta) + \
+        u0 - 2 * dt
+    dy = lambda u1: 2 * dt * theta * u1 - 1
+    for n in range(Nt):
+        u[n + 1] = scipy.optimize.fsolve(
+            partial(y, u0=u[n]), u[n], fprime=dy
+        )[0]
+    print(STR_FMT.format('u', u))
 
     # Compute error
     u_e = u_exact(t)

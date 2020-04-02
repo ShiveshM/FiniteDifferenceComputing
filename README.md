@@ -30,6 +30,7 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Verification
     * Convergence
     * Systems of ODEs
+    * Generic first-order ODEs
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
