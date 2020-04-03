@@ -31,6 +31,8 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Convergence
     * Systems of ODEs
     * Generic first-order ODEs
+    * Implicit 2-step backward scheme
+    * Leapfrog schemes
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7

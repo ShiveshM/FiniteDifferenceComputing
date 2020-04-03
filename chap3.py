@@ -19,11 +19,12 @@ import scipy.linalg
 import scipy.optimize
 from matplotlib import pyplot as plt
 
+from utils.solver import compute_rates
 from utils.solver import solver_chap3 as solver
 
 
 __all__ = ['generalisation', 'verification', 'convergence', 'systems',
-           'generic_FO_ODE']
+           'generic_FO_ODE', 'bdf2', 'leapfrog']
 
 IMGDIR = './img/chap3/'
 """Path to store images."""
@@ -281,33 +282,6 @@ def convergence() -> None:
     a = sym.lambdify([t], a_sym, modules='numpy')
     b = sym.lambdify([t], b_sym, modules='numpy')
 
-    def compute_rates(dt_values: List[float],
-                      E_values: List[float]) -> List[float]:
-        """
-        Estimate the convergence rate.
-
-        Parameters
-        ----------
-        dt_values : List of dt values.
-        E_values : List of errors.
-
-        Returns
-        ----------
-        r : Convergence rates.
-
-        """
-        m = len(dt_values)
-
-        # Compute the convergence rates
-        # rᵢ₋₁ = ln(Eᵢ₋₁ / Eᵢ) / ln(Δtᵢ₋₁ / Δtᵢ)
-        r = [np.log(E_values[i - 1] / E_values[i]) /
-             np.log(dt_values[i - 1] / dt_values[i])
-             for i in range(1, m)]
-
-        # Round to two d.p.
-        r = [round(r_, 2) for r_ in r]
-        return r
-
     T = 6
     I = u_exact(0)
     dt_values = [0.1 * 2**(-i) for i in range(7)]
@@ -533,6 +507,197 @@ def generic_FO_ODE() -> None:
     diff = np.max(np.abs(u_e - u))
     if diff > tol:
         raise AssertionError(f'Tolerance not reached, diff = {diff}')
+
+
+def bdf2() -> None:
+    """
+    An implicit 2-step backward scheme.
+
+    Notes
+    ----------
+    The implicit backward method with 2 steps applies a three-level backward
+    difference as approximation to u'(t).
+
+                u'(t{n+1}) ≈ (3 uⁿ⁺¹ - 4 uⁿ + uⁿ⁻¹) / (2 Δt)
+
+    which is an approximation of order Δt² to the first derivative. The
+    resulting scheme for u' = f(u, t) reads
+
+            uⁿ⁺¹ = (4/3) uⁿ - (1/3) uⁿ⁻¹ + (2/3) Δt f(uⁿ⁺¹, t{n+1})
+
+    Higher-order versions of this scheme can be constructed by including more
+    time levels. These schemes are known as Backward Differentiation Formulas
+    (BDF), and this particular version is referred to as BDF2 and has second
+    order convergence.
+
+    Also note that this scheme is implicit and requires solution of nonlinear
+    equations when f is nonlinear in u. The standard 1st-order Backward Euler
+    method or Crank-Nicolson scheme can be used for the first step.
+
+    """
+    # Definitions
+    # Solving u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    E_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u[0] = I
+
+        # Solve for mesh function
+        first_step = 'BackwardEuler'
+        if first_step == 'CrankNicolson':
+            # Crank-Nicolson 1. step
+            u[1] = (1 - 0.5 * a * dt) / (1 + 0.5 * dt * a) * u[0]
+        elif first_step == 'BackwardEuler':
+            # Backward Euler 1. step
+            u[1] = 1 / (1 + dt * a) * u[0]
+        for n in range(1, Nt):
+            u[n + 1] = (4 * u[n] - u[n - 1]) / (3 + 2 * dt * a)
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u
+        E = np.sqrt(dt * np.sum(e**2))
+        E_values.append(E)
+
+    # Compute convergence rates
+    r = compute_rates(dt_values, E_values)
+    print(STR_FMT.format('r', f'{r}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 2
+    tol = 0.1
+    diff = np.abs(expected_rate - r[-1])
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
+
+
+def leapfrog() -> None:
+    """
+    Leapfrog schemes.
+
+    Notes
+    ----------
+    The ordinary Leapfrog scheme
+        The derivative of u at some point tn can be approximated by a central
+        difference over two time steps,
+
+                      u'(tn) ≈ (uⁿ⁺¹ - uⁿ⁻¹) / (2 Δt) = [D₂ₜ u]ⁿ
+
+        which is an approximation of second order in Δt. The scheme can then be
+        written as
+
+                                 [D₂ₜ u = f(u, t)]ⁿ
+
+        in the operator notation. Solving for uⁿ⁺¹ gives
+
+                             uⁿ⁺¹ = uⁿ⁻¹ + 2 Δt f(uⁿ, tn)
+
+        Observe that this is an explicit scheme, and that a nonlinear f (in u)
+        is trivial to handle since it only involves the known uⁿ values. Some
+        other scheme must be used as a starter to compute u¹, preferable the
+        Forward Euler scheme since it is also explicit.
+
+    The filtered Leapfrog scheme
+        Unfortunately, the ordinary Leapfrog scheme may develop growing
+        oscillations with time. A remedy for such undesired oscillation is to
+        introduce a filtering technique.
+
+        First, a standard Leapfrog step is taken, and then the previous uⁿ
+        value is adjusted according to
+
+                           uⁿ ← uⁿ + γ(uⁿ⁻¹ - 2 uⁿ + uⁿ⁺¹)
+
+        The γ-terms will effectively damp oscillations in the solution,
+        especially those with short wavelength (like point-to-point
+        oscillations). A common choice of γ is 0.6 (a values used in the famous
+        NCAR Climate Model).
+
+    """
+    # Definitions
+    # Solving u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    gamma = 0.6
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    E_values = []
+    E_filt_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u = np.zeros(Nt + 1)
+        u_filt = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u[0] = I
+        u_filt[0] = I
+
+        # Solve for mesh function
+        first_step = 'ForwardEuler'
+        if first_step == 'CrankNicolson':
+            # Crank-Nicolson 1. step
+            u[1] = (1 - 0.5 * a * dt) / (1 + 0.5 * dt * a) * u[0]
+        elif first_step == 'ForwardEuler':
+            # Forward Euler 1. step
+            u[1] = (1 - dt * a) * u[0]
+        u_filt[1] = u[1]
+
+        for n in range(1, Nt):
+            # Ordinary
+            u[n + 1] = u[n - 1] - 2 * dt * a * u[n]
+
+            # Filtered
+            u_filt[n + 1] = u_filt[n - 1] - 2 * dt * a * u_filt[n]
+            u_filt[n] = u_filt[n] + gamma * (
+                u_filt[n - 1] - 2 * u_filt[n] + u_filt[n + 1]
+            )
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u
+        E = np.sqrt(dt * np.sum(e**2))
+        E_values.append(E)
+
+        e_filt = u_e - u_filt
+        E_filt = np.sqrt(dt * np.sum(e_filt**2))
+        E_filt_values.append(E_filt)
+
+
+    # Compute convergence rates
+    r = compute_rates(dt_values, E_values)
+    print(STR_FMT.format('E_values', f'{E_values}'))
+    print(STR_FMT.format('r', f'{r}'))
+    r_filt = compute_rates(dt_values, E_filt_values)
+    print(STR_FMT.format('E_filt_values', f'{E_filt_values}'))
+    print(STR_FMT.format('r_filt', f'{r_filt}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 2
+    tol = 0.1
+    diff = np.abs(expected_rate - r[-1])
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
+
+    expected_rate = 1
+    diff_filt = np.abs(expected_rate - r_filt[-1])
+    if diff_filt > tol:
+        raise AssertionError(
+            f'Tolerance not reached, diff_filt = {diff_filt}!={r_filt[-1]}'
+        )
 
 
 def main() -> None:

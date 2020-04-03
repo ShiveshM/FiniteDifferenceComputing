@@ -3,12 +3,40 @@ Solver functions
 
 """
 
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 
 
-__all__ = ['solver_chap2', 'solver_chap3']
+__all__ = ['compute_rates', 'solver_chap2', 'solver_chap3']
+
+
+def compute_rates(dt_values: List[float],
+                  E_values: List[float]) -> List[float]:
+    """
+    Estimate the convergence rate.
+
+    Parameters
+    ----------
+    dt_values : List of dt values.
+    E_values : List of errors.
+
+    Returns
+    ----------
+    r : Convergence rates.
+
+    """
+    m = len(dt_values)
+
+    # Compute the convergence rates
+    # rᵢ₋₁ = ln(Eᵢ₋₁ / Eᵢ) / ln(Δtᵢ₋₁ / Δtᵢ)
+    r = [np.log(E_values[i - 1] / E_values[i]) /
+         np.log(dt_values[i - 1] / dt_values[i])
+         for i in range(1, m)]
+
+    # Round to two d.p.
+    r = [round(r_, 2) for r_ in r]
+    return r
 
 
 def solver_chap2(I: float, a: float, T: float, dt: float,
