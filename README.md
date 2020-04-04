@@ -33,6 +33,9 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * Generic first-order ODEs
     * Implicit 2-step backward scheme
     * Leapfrog schemes
+    * 2nd-order Runge-Kutta method
+    * 2nd-order Taylor-series method
+    * The 2nd- and 3rd-order Adams-Bashforth schemes
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7

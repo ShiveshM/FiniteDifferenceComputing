@@ -10,6 +10,7 @@ Problem formulation: Using finite difference methods find u(t) such that:
 
 """
 
+from copy import deepcopy
 from functools import partial
 from typing import List
 
@@ -24,7 +25,8 @@ from utils.solver import solver_chap3 as solver
 
 
 __all__ = ['generalisation', 'verification', 'convergence', 'systems',
-           'generic_FO_ODE', 'bdf2', 'leapfrog']
+           'generic_FO_ODE', 'bdf2', 'leapfrog', 'rk2', 'taylor_series',
+           'adams_bashforth']
 
 IMGDIR = './img/chap3/'
 """Path to store images."""
@@ -697,6 +699,237 @@ def leapfrog() -> None:
     if diff_filt > tol:
         raise AssertionError(
             f'Tolerance not reached, diff_filt = {diff_filt}!={r_filt[-1]}'
+        )
+
+
+def rk2() -> None:
+    """
+    The 2nd-order Runge-Kutta method.
+
+    Notes
+    ----------
+    The two-step scheme
+
+                            u* = uⁿ + Δt f(uⁿ, tn)
+                    uⁿ⁺¹ = uⁿ + Δt ½ (f(uⁿ, tn) + f(u*, t{n+1}))
+
+    essentially applied a Crank-Nicolson method to the ODE, but replaces the
+    term f(uⁿ⁺¹, t{n+1}) by a prediction f(u*, t{n+1}) based on the Forward
+    Euler step. This scheme is known as Huen's method, but it also a 2nd-order
+    Runge-Kutta method. The scheme is explicit, and the error is expected to
+    behave as Δt².
+
+    """
+    # Definitions
+    # Solving u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    E_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u[0] = I
+
+        # Solve for mesh function
+        for n in range(Nt):
+            u_star = u[n] - dt * a * u[n]
+            u[n + 1] = u[n] - (1/2) * dt * a * (u[n] + u_star)
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u
+        E = np.sqrt(dt * np.sum(e**2))
+        E_values.append(E)
+
+    # Compute convergence rates
+    r = compute_rates(dt_values, E_values)
+    print(STR_FMT.format('r', f'{r}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 2
+    tol = 0.1
+    diff = np.abs(expected_rate - r[-1])
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
+
+
+def taylor_series() -> None:
+    """
+    2nd-order Taylor-series method.
+
+    Notes
+    ----------
+    One way to compute uⁿ⁺¹ given uⁿ is to use a Taylor polynomial. We may
+    write up a polynomial of 2nd degree
+
+                    uⁿ⁺¹ = uⁿ + u'(tn) Δt + ½ u''(tn) Δt²
+
+    From the equation u' = f(u, t), it follows that the derivatives of u can be
+    expressed in terms of f and its derivatives
+
+                            u'(tn) = f(uⁿ, tn)
+                    u''(tn) = ∂f/∂u(uⁿ, tn) u'(tn) + ∂f/∂t
+                            = f(uⁿ, tn) ∂f/du(uⁿ, tn) + ∂f/dt
+
+    resulting in the scheme
+
+        uⁿ⁺¹ = uⁿ + f(uⁿ, tn) Δt + ½(f(uⁿ, tn) ∂f/du(uⁿ, tn) + ∂f/dt) Δt²
+
+    More terms in the series could be included in the Taylor polynomial to
+    obtain methods of higher order than 2.
+
+    """
+    # Definitions
+    # Solving f(t) = u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    f = lambda u, t: -a * u[t]
+    dfdu = lambda u, t: -a
+    dfdt = lambda u, t: 0
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    E_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u[0] = I
+
+        # Solve for mesh function
+        for n in range(Nt):
+            u[n + 1] = u[n] + f(u, n) * dt + (1/2) * (
+                f(u, n) * dfdu(u, t) + dfdt(u, t)
+            ) * dt**2
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u
+        E = np.sqrt(dt * np.sum(e**2))
+        E_values.append(E)
+
+    # Compute convergence rates
+    r = compute_rates(dt_values, E_values)
+    print(STR_FMT.format('r', f'{r}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 2
+    tol = 0.1
+    diff = np.abs(expected_rate - r[-1])
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
+
+
+def adams_bashforth() -> None:
+    """
+    The 2nd- and 3rd-order Adams-Bashforth schemes.
+
+    Notes
+    ----------
+    The following method is known as the 2nd-order Adams-Bashforth scheme
+
+                uⁿ⁺¹ = uⁿ + ½ Δt (3 f(uⁿ, tn) - f(uⁿ⁻¹, t{n-1}))
+
+    This scheme is explicit and requires another one-step scheme to compute u¹
+    (the Forward Euler of Huen's method, for instance). As the name implies,
+    the error behaves as Δt².
+
+    Another explicit scheme, involving four time levels, is the 3rd-order
+    Adams-Bashforth scheme
+
+  uⁿ⁺¹ = uⁿ + (1/12) Δt (23 f(uⁿ, tn) - 16 f(uⁿ⁻¹, t{n-1}) + 5 f(uⁿ⁻², t{n-2}))
+
+    The numerical error is of order Δt³, and the scheme needs some method for
+    computing u¹ and u².
+
+    More general, higher-order Adams-Bashforth schemes (also called explicit
+    Adams methods) compute uⁿ⁺¹ as a linear combination of f at k+1 previous
+    time steps:
+
+                      uⁿ⁺¹ = uⁿ + ∑ⱼ₌₀ᵏ βⱼ f(uⁿ⁻ʲ, t{n-j})
+
+    where βⱼ are known coefficients.
+
+    """
+    # Definitions
+    # Solving f(t) = u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    f = lambda u, t: -a * u[t]
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    E_2_values = []
+    E_3_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u_2 = np.zeros(Nt + 1)
+        u_3 = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u_2[0] = I
+
+        # Crank-Nicolson 1. and 2. step
+        u_2[1] = (1 - (1/2) * a * dt) / (1 + (1/2) * dt * a) * u_2[0]
+        u_2[2] = (1 - (1/2) * a * dt) / (1 + (1/2) * dt * a) * u_2[1]
+        u_3[:3] = deepcopy(u_2[:3])
+
+        # Solve for mesh function
+        for n in range(2, Nt):
+            u_2[n + 1] = u_2[n] + (1/2) * dt * (3 * f(u_2, n) - f(u_2, n - 1))
+            u_3[n + 1] = u_3[n] + (1/12) * dt * (
+                23 * f(u_3, n) - 16 * f(u_3, n - 1) + 5 * f(u_3, n - 2)
+            )
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u_2
+        E = np.sqrt(dt * np.sum(e**2))
+        E_2_values.append(E)
+
+        # Compute error
+        e = u_e - u_3
+        E = np.sqrt(dt * np.sum(e**2))
+        E_3_values.append(E)
+
+    # Compute convergence rates
+    r_2 = compute_rates(dt_values, E_2_values)
+    print(STR_FMT.format('r_2', f'{r_2}'))
+
+    r_3 = compute_rates(dt_values, E_3_values)
+    print(STR_FMT.format('r_3', f'{r_3}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 2
+    tol = 0.1
+    diff = np.abs(expected_rate - r_2[-1])
+    if diff > tol:
+        raise AssertionError(
+            f'Tolerance not reached, diff = {diff}!={r_2[-1]}'
+        )
+
+    # Test final entry with expected convergence rate
+    expected_rate = 3
+    tol = 0.1
+    diff = np.abs(expected_rate - r_3[-1])
+    if diff > tol:
+        raise AssertionError(
+            f'Tolerance not reached, diff = {diff}!={r_3[-1]}'
         )
 
 
