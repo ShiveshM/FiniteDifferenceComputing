@@ -18,6 +18,7 @@ import numpy as np
 import sympy as sym
 import scipy.linalg
 import scipy.optimize
+import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 
 from utils.solver import compute_rates
@@ -26,7 +27,7 @@ from utils.solver import solver_chap3 as solver
 
 __all__ = ['generalisation', 'verification', 'convergence', 'systems',
            'generic_FO_ODE', 'bdf2', 'leapfrog', 'rk2', 'taylor_series',
-           'adams_bashforth']
+           'adams_bashforth', 'rk4', 'compare_schemes']
 
 IMGDIR = './img/chap3/'
 """Path to store images."""
@@ -286,7 +287,7 @@ def convergence() -> None:
 
     T = 6
     I = u_exact(0)
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
@@ -511,7 +512,7 @@ def generic_FO_ODE() -> None:
         raise AssertionError(f'Tolerance not reached, diff = {diff}')
 
 
-def bdf2() -> None:
+def bdf2() -> List[List[float]]:
     """
     An implicit 2-step backward scheme.
 
@@ -536,6 +537,10 @@ def bdf2() -> None:
     equations when f is nonlinear in u. The standard 1st-order Backward Euler
     method or Crank-Nicolson scheme can be used for the first step.
 
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
@@ -544,9 +549,10 @@ def bdf2() -> None:
     a = 3
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
+    solutions = []
     E_values = []
     for dt in dt_values:
         # Define mesh functions and points
@@ -572,6 +578,8 @@ def bdf2() -> None:
         E = np.sqrt(dt * np.sum(e**2))
         E_values.append(E)
 
+        solutions.append(u)
+
     # Compute convergence rates
     r = compute_rates(dt_values, E_values)
     print(STR_FMT.format('r', f'{r}'))
@@ -583,8 +591,10 @@ def bdf2() -> None:
     if diff > tol:
         raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
 
+    return solutions
 
-def leapfrog() -> None:
+
+def leapfrog() -> List[List[float]]:
     """
     Leapfrog schemes.
 
@@ -625,6 +635,10 @@ def leapfrog() -> None:
         oscillations). A common choice of γ is 0.6 (a values used in the famous
         NCAR Climate Model).
 
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
@@ -634,9 +648,10 @@ def leapfrog() -> None:
     gamma = 0.6
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
+    solutions = []
     E_values = []
     E_filt_values = []
     for dt in dt_values:
@@ -678,6 +693,8 @@ def leapfrog() -> None:
         E_filt = np.sqrt(dt * np.sum(e_filt**2))
         E_filt_values.append(E_filt)
 
+        solutions.append(u_filt)
+
 
     # Compute convergence rates
     r = compute_rates(dt_values, E_values)
@@ -701,8 +718,10 @@ def leapfrog() -> None:
             f'Tolerance not reached, diff_filt = {diff_filt}!={r_filt[-1]}'
         )
 
+    return solutions
 
-def rk2() -> None:
+
+def rk2() -> List[List[float]]:
     """
     The 2nd-order Runge-Kutta method.
 
@@ -719,6 +738,10 @@ def rk2() -> None:
     Runge-Kutta method. The scheme is explicit, and the error is expected to
     behave as Δt².
 
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
@@ -727,9 +750,10 @@ def rk2() -> None:
     a = 3
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
+    solutions = []
     E_values = []
     for dt in dt_values:
         # Define mesh functions and points
@@ -749,6 +773,8 @@ def rk2() -> None:
         E = np.sqrt(dt * np.sum(e**2))
         E_values.append(E)
 
+        solutions.append(u)
+
     # Compute convergence rates
     r = compute_rates(dt_values, E_values)
     print(STR_FMT.format('r', f'{r}'))
@@ -760,8 +786,10 @@ def rk2() -> None:
     if diff > tol:
         raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
 
+    return solutions
 
-def taylor_series() -> None:
+
+def taylor_series() -> List[List[float]]:
     """
     2nd-order Taylor-series method.
 
@@ -786,20 +814,25 @@ def taylor_series() -> None:
     More terms in the series could be included in the Taylor polynomial to
     obtain methods of higher order than 2.
 
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
     """
     # Definitions
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
     a = 3
-    f = lambda u, t: -a * u[t]
-    dfdu = lambda u, t: -a
-    dfdt = lambda u, t: 0
+    f = lambda u, n: -a * u[n]
+    dfdu = lambda u, n: -a
+    dfdt = lambda u, n: 0
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
+    solutions = []
     E_values = []
     for dt in dt_values:
         # Define mesh functions and points
@@ -820,6 +853,8 @@ def taylor_series() -> None:
         E = np.sqrt(dt * np.sum(e**2))
         E_values.append(E)
 
+        solutions.append(u)
+
     # Compute convergence rates
     r = compute_rates(dt_values, E_values)
     print(STR_FMT.format('r', f'{r}'))
@@ -831,8 +866,10 @@ def taylor_series() -> None:
     if diff > tol:
         raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
 
+    return solutions
 
-def adams_bashforth() -> None:
+
+def adams_bashforth() -> List[List[float]]:
     """
     The 2nd- and 3rd-order Adams-Bashforth schemes.
 
@@ -862,18 +899,23 @@ def adams_bashforth() -> None:
 
     where βⱼ are known coefficients.
 
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
     """
     # Definitions
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
     a = 3
-    f = lambda u, t: -a * u[t]
+    f = lambda u, n: -a * u[n]
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(7)]
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
+    solutions = []
     E_2_values = []
     E_3_values = []
     for dt in dt_values:
@@ -907,6 +949,8 @@ def adams_bashforth() -> None:
         E = np.sqrt(dt * np.sum(e**2))
         E_3_values.append(E)
 
+        solutions.append(u_3)
+
     # Compute convergence rates
     r_2 = compute_rates(dt_values, E_2_values)
     print(STR_FMT.format('r_2', f'{r_2}'))
@@ -931,6 +975,207 @@ def adams_bashforth() -> None:
         raise AssertionError(
             f'Tolerance not reached, diff = {diff}!={r_3[-1]}'
         )
+
+    return solutions
+
+
+def rk4() -> List[List[float]]:
+    """
+    The 4nd-order Runge-Kutta method.
+
+    Notes
+    ----------
+    Perhaps the most widely used method to solve ODEs is the 4th-order
+    Runge-Kutta method, often called RK4. Its derivation is a nice illustration
+    of common numerical approximation strategies.
+
+    The starting point is to integrate the ODE u' = f(u, t) from tn to t{n+1}
+
+                u(t{n+1}) - u(tn) = ∫ₜₙᵗⁿ⁺¹ f(u(t), t) dt
+
+    We want to compute u(t{n+1}) and regard u(tn) as known. The task is to find
+    good approximations for the integral, since the integrand involves the
+    unknown u between tn and t{n+1}.
+
+    The integrand can be approximated by the famous Simpson's rule
+
+            ∫ₜₙᵗⁿ⁺¹ f(u(t), t) dt ≈ Δt / 6 (fⁿ + 4 fⁿ⁺¹⸍² + fⁿ⁺¹)
+
+    The problem is that we do not know fⁿ⁺¹⸍² and fⁿ⁺¹ as we know only uⁿ and
+    hence fⁿ. The idea is to use various approximations for fⁿ⁺¹⸍² and fⁿ⁺¹
+    based on well-known schemes for the ODE in the intervals [tn, t{n+½}] and
+    [tn, t{n+1}]. we split the integral approximation into four terms
+
+         ∫ₜₙᵗⁿ⁺¹ f(u(t), t) dt ≈ Δt / 6 (fⁿ + 2 𝒇ⁿ⁺¹⸍² + 2 𝕗ⁿ⁺¹⸍² + ḟⁿ⁺¹)
+
+    where 𝒇ⁿ⁺¹⸍², 𝕗ⁿ⁺¹⸍², and ḟⁿ⁺¹ are approximations to fⁿ⁺¹⸍² and fⁿ⁺¹
+    respectively, that can be based on already computed quantities. For 𝒇ⁿ⁺¹⸍²
+    we can apply an approximation to uⁿ⁺¹⸍² using the Forward Euler method with
+    step ½ Δt
+
+                        𝒇ⁿ⁺¹⸍² = f(uⁿ + ½ Δt fⁿ, t{n+½})
+
+    Since this gives us a prediction of fⁿ⁺¹⸍², we can for 𝕗ⁿ⁺¹⸍² try a
+    Backward Euler method to approximate uⁿ⁺¹⸍²
+
+                     𝕗ⁿ⁺¹⸍² = f(uⁿ + ½ Δt 𝒇ⁿ⁺¹⸍², t{n+½})
+
+    With 𝕗ⁿ⁺¹⸍² as a hopefully good approximation to fⁿ⁺¹⸍², we can, for the
+    final term ḟⁿ⁺¹, use a Crank-Nicolson method on [tn, t{n+1}] to approximate
+    uⁿ⁺¹
+
+                     ḟⁿ⁺¹⸍² = f(uⁿ + Δt 𝕗ⁿ⁺¹⸍², t{n+1})
+
+    We have now used the Forward and Backward Euler methods as well as the
+    Crank-Nicolson method in the context of Simpson's rule. The hope is that
+    the combination of these methods yields an overall time-stepping scheme
+    from tn to t{n+1} that is much more accurate that the 𝓞(Δt) and 𝓞(Δt²) of
+    the individual steps. This in indeed true: the overall accuracy is 𝓞(Δt⁴)!
+
+    To summarise, the 4th-order Runge-Kutta method becomes
+
+               uⁿ⁺¹ = uⁿ + Δt / 6 (fⁿ + 2 𝒇ⁿ⁺¹⸍² + 2 𝕗ⁿ⁺¹⸍² + ḟⁿ⁺¹)
+
+    where the quantities on the right-hand side are computed as defined above.
+    Note that the scheme is fully explicit, so there is never any need to solve
+    linear or nonlinear algebraic equations. However, the stability is
+    conditional and depends on f. There is a whole range of implicit
+    Runge-Kutta methods that are unconditionally stable, but require solution
+    of algebraic equations involving f at each time step.
+
+    Returns
+    ----------
+    solutions: Numerical solutions for 8 Δt values.
+
+    """
+    # Definitions
+    # Solving f(t) = u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    f = lambda u, n: -a * u[n]
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    print(STR_FMT.format('dt_values', f'{dt_values}'))
+
+    solutions = []
+    E_values = []
+    for dt in dt_values:
+        # Define mesh functions and points
+        Nt = int(T / dt)
+        u = np.zeros(Nt + 1)
+        t = np.linspace(0, Nt * dt, Nt + 1)
+        u[0] = I
+
+        # Solve for mesh function
+        for n in range(Nt):
+            f_fe = -a * (u[n] + (1/2) * dt * f(u, n))
+            f_be = -a * (u[n] + (1/2) * dt * f_fe)
+            f_cn = -a * (u[n] + dt * f_be)
+            u[n + 1] = u[n] + (1/6) * dt * (
+                f(u, n) + 2 * f_fe + 2 * f_be + f_cn
+            )
+
+        # Compute error
+        u_e = u_exact(t)
+        e = u_e - u
+        E = np.sqrt(dt * np.sum(e**2))
+        E_values.append(E)
+
+        solutions.append(u)
+
+    # Compute convergence rates
+    r = compute_rates(dt_values, E_values)
+    print(STR_FMT.format('r', f'{r}'))
+
+    # Test final entry with expected convergence rate
+    expected_rate = 4
+    tol = 0.1
+    diff = np.abs(expected_rate - r[-1])
+    if diff > tol:
+        raise AssertionError(f'Tolerance not reached, diff = {diff}!={r[-1]}')
+
+    return solutions
+
+
+def compare_schemes() -> None:
+    """
+    Compare schemes discussed in this chapter.
+    """
+    schemes = {'Filtered Leapfrog': leapfrog,
+               '2nd-order Taylor-series': taylor_series,
+               '3rd-order Adams-Bashforth': adams_bashforth,
+               '2nd-order Runge-Kutta': rk2,
+               '4th-order Runge-Kutta': rk4}
+
+    # Definitions
+    # Solving f(t) = u'(t) = -a * u(t)
+    I = 1
+    T = 4
+    a = 3
+    f = lambda u, n: -a * u[n]
+    u_exact = lambda t: np.exp(-a * t)
+
+    dt_values = [0.1 * 2**(-i) for i in range(8)]
+
+    fig = plt.figure(figsize=(24, 10))
+    fig.suptitle(
+        r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+    )
+
+    axs = []
+    gs = gridspec.GridSpec(2, 4)
+    gs.update(hspace=0.3, wspace=0.3)
+    for sc_idx, scheme in enumerate(schemes):
+        # Get solution
+        solutions = schemes[scheme]()
+
+        for dt_idx, dt in enumerate(dt_values):
+            Nt = int(T / dt)
+            t = np.linspace(0, Nt * dt, Nt + 1)
+
+            if sc_idx == 0:
+                gssub = gs[dt_idx].subgridspec(
+                    2, 1, height_ratios=(1, 1), hspace=0
+                )
+                ax1 = fig.add_subplot(gssub[0])
+                ax2 = fig.add_subplot(gssub[1])
+                axs.append([ax1, ax2])
+
+                ax1.set_title('$\Delta t={:g}$'.format(dt))
+                ax1.set_ylim(0, 1)
+                ax1.set_xlim(0, T)
+                ax1.set_ylabel('u')
+                ax1.set_xticks([])
+                ax1.set_yticks(ax1.get_yticks()[1:])
+
+                ax2.grid(c='k', ls='--', alpha=0.3)
+                ax2.set_yscale('log')
+                ax2.set_xlim(0, T)
+                ax2.set_xlabel('t')
+                ax2.set_ylabel('log err')
+
+                # Calculate exact solution
+                t_e = np.linspace(0, T, 1001)
+                u_e = u_exact(t_e)
+
+                # Plot with black line
+                ax1.plot(t_e, u_e, 'k-', label='exact')
+
+            ax1, ax2 = axs[dt_idx]
+
+            # Plot
+            p = ax1.plot(t, solutions[dt_idx], ls='-', label=scheme)
+            ax1.legend()
+
+            # Calculate exact solution
+            u_e = u_exact(t)
+            err = np.abs(u_e - solutions[dt_idx])
+            ax2.plot(t, err, ls='-', color=p[0].get_color())
+
+    # Save figure
+    fig.savefig(IMGDIR + f'comparison.png', bbox_inches='tight')
 
 
 def main() -> None:

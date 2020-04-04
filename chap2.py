@@ -11,6 +11,7 @@ Problem formulation: Using finite difference methods find u(t) such that:
 
 import numpy as np
 import sympy as sym
+import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 
 from utils.solver import solver_chap2 as solver
@@ -56,16 +57,55 @@ def investigations() -> None:
     I = 1
     a = 2
     T = 6
+    u_exact = lambda t, I, a: I * np.exp(-a * t)
 
     th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
                0.5: ('Crank-Nicolson', 'cn')}
 
-    for th in th_dict:
-        fig, axs = plt.subplots(
+    fig1 = plt.figure(figsize=(14, 10))
+    fig1.suptitle(
+        r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+    )
+
+    axs1 = []
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(hspace=0.3, wspace=0.3)
+    for th_idx, th in enumerate(th_dict):
+        fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
         )
         for dt_idx, dt in enumerate((1.25, 0.75, 0.5, 0.1)):
-            ax = axs.flat[dt_idx]
+            if th_idx == 0:
+                gssub = gs[dt_idx].subgridspec(
+                    2, 1, height_ratios=(2, 1), hspace=0
+                )
+                ax1 = fig1.add_subplot(gssub[0])
+                ax2 = fig1.add_subplot(gssub[1])
+                axs1.append([ax1, ax2])
+
+                ax1.set_title('$\Delta t={:g}$'.format(dt))
+                ax1.set_ylim(0, 1)
+                ax1.set_xlim(0, T)
+                ax1.set_ylabel('u')
+                ax1.set_xticks([])
+                ax1.set_yticks(ax1.get_yticks()[1:])
+
+                ax2.grid(c='k', ls='--', alpha=0.3)
+                ax2.set_yscale('log')
+                ax2.set_xlim(0, T)
+                ax2.set_xlabel('t')
+                ax2.set_ylabel('log err')
+
+                # Calculate exact solution
+                t_e = np.linspace(0, T, 1001)
+                u_e = u_exact(t_e, I, a)
+
+                # Plot with black line
+                ax1.plot(t_e, u_e, 'k-', label='exact')
+
+            ax1, ax2 = axs1[dt_idx]
+
+            ax = axs2.flat[dt_idx]
             ax.set_title('{}, dt={:g}'.format(th_dict[th][0], dt))
             ax.set_ylim(0, 1)
             ax.set_xlim(0, T)
@@ -76,19 +116,24 @@ def investigations() -> None:
             u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
 
             # Calculate exact solution
-            u_exact = lambda t, I, a: I * np.exp(-a * t)
-            t_e = np.linspace(0, T, 1001)
-            u_e = u_exact(t_e, I, a)
+            u_e = u_exact(t, I, a)
 
-            # Plot with red dashes w/ circles
+            # Plot
             ax.plot(t, u, 'r--o', label='numerical')
+            p = ax1.plot(t, u, ls='-', label=th_dict[th][0])
+            ax1.legend()
 
-            # Plot with blue line
-            ax.plot(t_e, u_e, 'b-', label='exact')
+            # Plot exact solution
+            ax.plot(t, u_e, 'b-', label='exact')
             ax.legend()
+            err = np.abs(u_e - u)
+            ax2.plot(t, err, ls='-', color=p[0].get_color())
 
         # Save figure
-        fig.savefig(IMGDIR + f'{th_dict[th][1]}.png', bbox_inches='tight')
+        fig2.savefig(IMGDIR + f'{th_dict[th][1]}.png', bbox_inches='tight')
+
+    # Save figure
+    fig1.savefig(IMGDIR + f'comparison.png', bbox_inches='tight')
 
 
 def stability() -> None:

@@ -36,6 +36,7 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * 2nd-order Runge-Kutta method
     * 2nd-order Taylor-series method
     * The 2nd- and 3rd-order Adams-Bashforth schemes
+    * 4th-order Runge-Kutta method
 
 ### Dependencies
 * [`Python`](https://www.python.org/) >= 3.7
