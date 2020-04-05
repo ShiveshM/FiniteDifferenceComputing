@@ -480,7 +480,6 @@ def generic_FO_ODE() -> None:
     Nt = int(T / dt)
     theta = 0.5
     sqrt2 = np.sqrt(2)
-    f_ut = lambda u, t: u(t)**2 - 2
     u_exact = lambda t: (2 + sqrt2 + (-2 + sqrt2) * np.exp(2 * sqrt2 * t)) / \
         (1 + sqrt2 + (-1 + sqrt2) * np.exp(2 * sqrt2 * t))
 
@@ -694,7 +693,6 @@ def leapfrog() -> List[List[float]]:
         E_filt_values.append(E_filt)
 
         solutions.append(u_filt)
-
 
     # Compute convergence rates
     r = compute_rates(dt_values, E_values)
