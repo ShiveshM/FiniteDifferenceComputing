@@ -55,16 +55,21 @@ def investigations() -> None:
 
     """
     I = 1
-    a = 2
+    a = 1
     T = 6
-    u_exact = lambda t, I, a: I * np.exp(-a * t)
+    b = 0
+    # u_exact = lambda t, I, a: I * np.exp(-a * t)
+    u_exact = lambda t, I, a, b=0: (1 / a) * np.exp(-a * t) * (
+        a + b * (np.exp(a * t) - 1)
+    )
 
-    th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
-               0.5: ('Crank-Nicolson', 'cn')}
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
     fig1 = plt.figure(figsize=(14, 10))
     fig1.suptitle(
-        r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+        r'$\frac{du(t)}{dt}=-\cdot u(t)$', y=0.95
     )
 
     axs1 = []
@@ -74,7 +79,10 @@ def investigations() -> None:
         fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
         )
-        for dt_idx, dt in enumerate((1.25, 0.75, 0.5, 0.1)):
+        fig1.suptitle(
+            r'$\frac{du(t)}{dt}=-u(t)$', y=0.95
+        )
+        for dt_idx, dt in enumerate((1.5, 1.25, 0.75, 0.1)):
             if th_idx == 0:
                 gssub = gs[dt_idx].subgridspec(
                     2, 1, height_ratios=(2, 1), hspace=0
@@ -98,7 +106,7 @@ def investigations() -> None:
 
                 # Calculate exact solution
                 t_e = np.linspace(0, T, 1001)
-                u_e = u_exact(t_e, I, a)
+                u_e = u_exact(t_e, I, a, b)
 
                 # Plot with black line
                 ax1.plot(t_e, u_e, 'k-', label='exact')
@@ -113,21 +121,21 @@ def investigations() -> None:
             ax.set_ylabel('u')
 
             # Solve
-            u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
+            u, t = solver(I=I, a=a, T=T, dt=dt, theta=th, b=b)
 
             # Calculate exact solution
             u_e = u_exact(t, I, a)
 
             # Plot
             ax.plot(t, u, 'r--o', label='numerical')
-            p = ax1.plot(t, u, ls='-', label=th_dict[th][0])
+            ax1.plot(t, u, th_dict[th][2], label=th_dict[th][0])
             ax1.legend()
 
             # Plot exact solution
             ax.plot(t, u_e, 'b-', label='exact')
             ax.legend()
             err = np.abs(u_e - u)
-            ax2.plot(t, err, ls='-', color=p[0].get_color())
+            ax2.plot(t, err, th_dict[th][2])
 
         # Save figure
         fig2.savefig(IMGDIR + f'{th_dict[th][1]}.png', bbox_inches='tight')
@@ -227,7 +235,7 @@ def stability() -> None:
         # Solve for each a, Δt
         for a_idx, a_val in enumerate(a):
             for dt_idx, dt_val in enumerate(dt):
-                u, _ = solver(I, a_val, T, dt_val, th)
+                u, _ = solver(I, a_val, T, dt_val, th, b=0)
 
                 # Does u have the right monotone decay properties?
                 is_monotone = True
@@ -250,7 +258,7 @@ def stability() -> None:
         ax.grid(c='k', ls='--', alpha=0.3)
         B = B.reshape(len(a), len(dt))
         ax.contourf(a_grid, dt_grid, B, levels=[0., 0.1], hatches='XX',
-                    colors='grey', alpha=0.3, lines='k')
+                    colors='grey', alpha=0.3)
         fig.savefig(IMGDIR + f'{th_dict[th][1]}_osc.png', bbox_inches='tight')
 
 
@@ -306,13 +314,22 @@ def visual_accuracy() -> None:
                1: ('Backward Euler', 'be', 'g-v'),
                0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
+    xlims = (0, 3)
+    ylims = (-2, 1)
+
     fig, ax = plt.subplots()
-    ax.set_title('Amplification factors')
+    ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
     ax.set_xlabel('$p=a\Delta t$')
-    ax.set_ylabel('Amplification factor')
+    ax.set_ylabel(r'Amplification factor = $\frac{1-p(1-\theta)}{1+p\theta}$')
     ax.set_xlim(0, 3)
     ax.set_ylim(-2, 1)
-    ax.grid(c='k', ls='--', alpha=0.3)
+    ax.grid(c='k', ls='dotted', alpha=0.3)
+
+    ax.fill_between(xlims, ylims[0], -1, color='r', alpha=0.07)
+    ax.fill_between(xlims, -1, 0, color='darkorange', alpha=0.07)
+    ax.text(1.2, -1.3, 'A-unstable', verticalalignment='center', color='r')
+    ax.text(0.2, -0.3, 'L-unstable', verticalalignment='center',
+            color='darkorange')
 
     # Mesh grid for p = a Δt
     p = np.linspace(0, 3, 20)
@@ -1040,21 +1057,60 @@ def exponential_growth() -> None:
     """
     I = 1
     a = -1
-    T = 2.5
+    T = 3
+    u_exact = lambda t, I, a: I * np.exp(-a * t)
 
     th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
                1: ('Backward Euler', 'be', 'g-v'),
                0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
-    for th in th_dict:
-        fig, axs = plt.subplots(
+    fig1 = plt.figure(figsize=(14, 10))
+    fig1.suptitle(
+        r'$\frac{du(t)}{dt}=a\cdot u(t)\:{\rm where}\:a>0$', y=0.95
+    )
+
+    axs1 = []
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(hspace=0.3, wspace=0.3)
+    for th_idx, th in enumerate(th_dict):
+        fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
         )
-        fig.suptitle(
-            r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+        fig1.suptitle(
+            r'$\frac{du(t)}{dt}=u(t)$', y=0.95
         )
-        for dt_idx, dt in enumerate((1.25, 0.75, 0.5, 0.1)):
-            ax = axs.flat[dt_idx]
+        for dt_idx, dt in enumerate((1.5, 1.25, 0.75, 0.1)):
+            if th_idx == 0:
+                gssub = gs[dt_idx].subgridspec(
+                    2, 1, height_ratios=(2, 1), hspace=0
+                )
+                ax1 = fig1.add_subplot(gssub[0])
+                ax2 = fig1.add_subplot(gssub[1])
+                axs1.append([ax1, ax2])
+
+                ax1.set_title('$\Delta t={:g}$'.format(dt))
+                ax1.set_ylim(0, 20)
+                ax1.set_xlim(0, T)
+                ax1.set_ylabel('u')
+                ax1.set_xticks([])
+                ax1.set_yticks(ax1.get_yticks()[1:])
+
+                ax2.grid(c='k', ls='--', alpha=0.3)
+                ax2.set_yscale('log')
+                ax2.set_xlim(0, T)
+                ax2.set_xlabel('t')
+                ax2.set_ylabel('log err')
+
+                # Calculate exact solution
+                t_e = np.linspace(0, T, 1001)
+                u_e = u_exact(t_e, I, a)
+
+                # Plot with black line
+                ax1.plot(t_e, u_e, 'k-', label='exact')
+
+            ax1, ax2 = axs1[dt_idx]
+
+            ax = axs2.flat[dt_idx]
             ax.set_title('{}, dt={:g}'.format(th_dict[th][0], dt))
             ax.set_ylim(0, 15)
             ax.set_xlim(0, T)
@@ -1065,22 +1121,29 @@ def exponential_growth() -> None:
             u, t = solver(I=I, a=a, T=T, dt=dt, theta=th)
 
             # Calculate exact solution
-            u_exact = lambda t, I, a: I * np.exp(-a * t)
-            t_e = np.linspace(0, T, 1001)
-            u_e = u_exact(t_e, I, a)
+            u_e = u_exact(t, I, a)
 
-            # Plot with red dashes w/ circles
+            # Plot
             ax.plot(t, u, 'r--o', label='numerical')
+            ax1.plot(t, u, th_dict[th][2], label=th_dict[th][0])
+            ax1.legend()
 
-            # Plot with blue line
-            ax.plot(t_e, u_e, 'b-', label='exact')
+            # Plot exact solution
+            ax.plot(t, u_e, 'b-', label='exact')
             ax.legend()
+            err = np.abs(u_e - u)
+            ax2.plot(t, err, th_dict[th][2])
 
         # Save figure
-        fig.savefig(
+        fig2.savefig(
             IMGDIR + f'/growth/{th_dict[th][1]}_growth.png',
             bbox_inches='tight'
         )
+
+    # Save figure
+    fig1.savefig(
+        IMGDIR + f'/growth/comparison_growth.png', bbox_inches='tight'
+    )
 
     def calc_amp(p: float, theta: float):
         """
@@ -1088,7 +1151,7 @@ def exponential_growth() -> None:
 
         Parameters
         ----------
-        p : -a Δt
+        p : a Δt
         theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
 
         Returns
@@ -1098,16 +1161,32 @@ def exponential_growth() -> None:
         """
         return (1 + (1 - theta) * p) / (1 - theta * p)
 
-    fig, ax = plt.subplots()
-    ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$')
-    ax.set_xlabel('$p=-a\Delta t$')
-    ax.set_ylabel('Amplification factor')
-    ax.set_xlim(0, 3)
-    ax.set_ylim(-20, 20)
-    ax.grid(c='k', ls='--', alpha=0.3)
+    xlims = (-3, 3)
+    ylims = (-2, 5)
 
-    # Mesh grid for p = -a Δt
-    p = np.linspace(0, 3, 20)
+    fig, ax = plt.subplots()
+    ax.set_title(r'$\frac{du(t)}{dt}=a\cdot u(t)$')
+    ax.set_xlabel('$p=a\Delta t$')
+    ax.set_ylabel(r'Amplification factor = $\frac{1+p(1-\theta)}{1-p\theta}$')
+    ax.set_xlim(*xlims)
+    ax.set_ylim(*ylims)
+    ax.grid(c='k', ls='dotted', alpha=0.3)
+
+    ax.fill_between((xlims[0], 0), ylims[0], -1, color='r', alpha=0.07)
+    ax.fill_between((xlims[0], 0), 1, ylims[-1], color='r', alpha=0.07)
+    ax.fill_between((xlims[0], 0), -1, 0, color='darkorange', alpha=0.07)
+    ax.fill_between((0, xlims[-1]), ylims[0], 1, color='purple', alpha=0.07)
+    ax.text(-1.5, -1.5, 'A-unstable', verticalalignment='center', color='r')
+    ax.text(
+        -0.9, -0.5, 'L-unstable', verticalalignment='center',
+        color='darkorange'
+    )
+    ax.text(
+        1.1, 0.5, 'Unstable', verticalalignment='center', color='purple'
+    )
+
+    # Mesh grid for p = a Δt
+    p = np.linspace(*xlims, 30)
 
     for th in th_dict:
         # Calculate amplification factor
@@ -1120,7 +1199,7 @@ def exponential_growth() -> None:
     amp_exact = np.exp(p)
     ax.plot(p, amp_exact, 'k-o', label='exact')
 
-    ax.legend(loc='lower left')
+    ax.legend(loc='upper left')
     fig.savefig(
         IMGDIR + '/growth/amplification_factors_growth.png',
         bbox_inches='tight'
@@ -1162,7 +1241,7 @@ def exponential_growth() -> None:
         ax.grid(c='k', ls='--', alpha=0.3)
         B = B.reshape(len(a), len(dt))
         ax.contourf(a_grid, dt_grid, B, levels=[0., 0.1], hatches='XX',
-                    colors='grey', alpha=0.3, lines='k')
+                    colors='grey', alpha=0.3)
         fig.savefig(
             IMGDIR + f'/growth/{th_dict[th][1]}_osc_growth.png',
             bbox_inches='tight'

@@ -11,6 +11,7 @@ Problem formulation: Using finite difference methods find u(t) such that:
 """
 
 import numpy as np
+import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 
 from utils.solver import compute_rates
@@ -87,17 +88,18 @@ def scaling() -> None:
     one sets a = 1, b = 1, and I = 0 when the physical I is zero.
 
     """
-    from utils.solver import solver_chap2 as solver
+    from utils.solver import solver_chap4 as solver
 
     # Definitions
     # Solving y'(x) = λ y + α    x ∈ (0, X]    y(0) = I ≠ 0
     I = 1
     X = 4
-    lamda = 0.5
-    alpha = 2
-    dx = 0.05
-    Nx = int(X / dx)
-    x = np.linspace(0, Nx * dx, Nx + 1)
+    # lamda = -0.8
+    # alpha = 0.5
+    # ylims = (0.5, 1)
+    lamda = 0.8
+    alpha = 0.5
+    ylims = (0, 40)
     y_exact = lambda x: np.exp(x * lamda) * I + \
         ((-1 + np.exp(x * lamda)) * alpha) / lamda
 
@@ -109,24 +111,103 @@ def scaling() -> None:
     #
     #                        y(x) = (ỹ(λ x) - β) * I
     beta = alpha / (I * lamda)
-    t = lamda * x
 
-    # Solve dỹ/d𝐱 = ỹ using Crank-Nicolson scheme
-    u, _ = solver(I=1 + beta, a=-1, T=t[-1], dt=t[1] - t[0], theta=0.5)
+    th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
+               1: ('Backward Euler', 'be', 'g-v'),
+               0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
-    # Convert back to y
-    y = (u - beta) * I
-    print(STR_FMT.format('u', u))
-    print(STR_FMT.format('y', y))
+    fig1 = plt.figure(figsize=(14, 10))
+    fig1.suptitle(
+        r'$\frac{du(t)}{dt}=a\cdot u(t)\:{\rm where}\:a>0$', y=0.95
+    )
 
-    # Calculate exact solution
-    y_e = y_exact(x)
+    axs1 = []
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(hspace=0.2, wspace=0.2)
+    for th_idx, th in enumerate(th_dict):
+        fig2, axs2 = plt.subplots(
+            2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
+        )
+        fig1.suptitle(
+            r'$\frac{dy(x)}{dx}=\lambda y(x)+\alpha\:{\rm where}\:\lambda=' +
+            f'{lamda:g}' + r',\alpha=' + f'{alpha:g}' + r'$', y=0.95
+        )
+        for dx_idx, dx in enumerate((1.5, 1.25, 0.75, 0.1)):
+            # Calculate mesh points
+            Nx = int(X / dx)
+            x = np.linspace(0, Nx * dx, Nx + 1)
 
-    # Assert that max deviation is below tolerance
-    tol = 1E-2
-    diff = np.max(np.abs(y_e - y))
-    if diff > tol:
-        raise AssertionError(f'Tolerance not reached, diff = {diff}')
+            # Calculate scaled mesh points
+            T = lamda * X
+            t = lamda * x
+
+            if th_idx == 0:
+                gssub = gs[dx_idx].subgridspec(
+                    2, 1, height_ratios=(2, 1), hspace=0
+                )
+                ax1 = fig1.add_subplot(gssub[0])
+                ax2 = fig1.add_subplot(gssub[1])
+                axs1.append([ax1, ax2])
+
+                ax1.set_title('$\Delta x={:g}$'.format(dx))
+                ax1.set_ylim(*ylims)
+                ax1.set_xlim(0, X)
+                ax1.set_ylabel('u')
+                ax1.set_xticks([])
+                ax1.set_yticks(ax1.get_yticks()[1:])
+
+                ax2.grid(c='k', ls='--', alpha=0.3)
+                ax2.set_yscale('log')
+                ax2.set_xlim(0, X)
+                ax2.set_xlabel('x')
+                ax2.set_ylabel('log err')
+
+                # Calculate exact solution
+                x_e = np.linspace(0, X, 1001)
+                y_e = y_exact(x_e)
+
+                # Plot with black line
+                ax1.plot(x_e, y_e, 'k-', label='exact')
+
+            ax1, ax2 = axs1[dx_idx]
+
+            ax = axs2.flat[dx_idx]
+            ax.set_title('{}, dx={:g}'.format(th_dict[th][0], dx))
+            # ax.set_ylim(0, 15)
+            ax.set_xlim(0, X)
+            ax.set_xlabel(r'x')
+            ax.set_ylabel(r'$y(x)$')
+
+            # Solve dỹ/d𝐱 = ỹ using Crank-Nicolson scheme
+            u = solver(I=1 + beta, a=-1, t=t, theta=th)
+
+            # Convert back to y
+            y = (u - beta) * I
+
+            # Calculate exact solution
+            y_e = y_exact(x)
+
+            # Plot
+            ax.plot(x, y, 'r--o', label='numerical')
+            ax1.plot(x, y, th_dict[th][2], label=th_dict[th][0])
+            ax1.legend()
+
+            # Plot exact solution
+            ax.plot(x, y_e, 'b-', label='exact')
+            ax.legend()
+            err = np.abs(y_e - y)
+            ax2.plot(x, err, th_dict[th][2])
+
+        # Save figure
+        fig2.savefig(
+            IMGDIR + f'{th_dict[th][1]}_growth.png',
+            bbox_inches='tight'
+        )
+
+    # Save figure
+    fig1.savefig(
+        IMGDIR + f'comparison.png', bbox_inches='tight'
+    )
 
 
 def main() -> None:

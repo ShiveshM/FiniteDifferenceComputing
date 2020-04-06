@@ -40,7 +40,7 @@ def compute_rates(dt_values: List[float],
 
 
 def solver_chap2(I: float, a: float, T: float, dt: float,
-                 theta: float, c: float = 0) -> Tuple[float]:
+                 theta: float, b: float = 0) -> Tuple[float]:
     """
     Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
 
@@ -51,6 +51,7 @@ def solver_chap2(I: float, a: float, T: float, dt: float,
     T : Maximum time to compute to.
     dt : Step size.
     theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+    b : Extra constant term.
 
     Returns
     ----------
@@ -69,7 +70,7 @@ def solver_chap2(I: float, a: float, T: float, dt: float,
     for n in range(Nt):
         u[n + 1] = (1 - (1 - theta) * a * dt) / \
             (1 + theta * a * dt) * u[n] + \
-            (c * dt) / (1 + theta * a * dt)
+            (b * dt) / (1 + theta * a * dt)
     return u, t
 
 
@@ -107,3 +108,35 @@ def solver_chap3(I: float, a: Callable[[float], float],
                     dt * (theta * b(t[n + 1]) + (1 - theta) * b(t[n]))) / \
             (1 + dt * theta * a(t[n + 1]))
     return u, t
+
+
+def solver_chap4(I: float, a: float, t: List[float], theta: float,
+                 b: float = 0) -> Tuple[float]:
+    """
+    Solve u'=-a*u, u(0)=I, for t in (0,T] with steps of dt.
+
+    Parameters
+    ----------
+    I : Initial condition.
+    a : Constant coefficient.
+    t : Mesh points.
+    theta : theta=0 corresponds to FE, theta=0.5 to CN and theta=1 to BE.
+    b : Extra constant term.
+
+    Returns
+    ----------
+    u : Mesh function.
+
+    """
+    Nt = len(t) - 1
+    dt = t[1] - t[0]
+    u = np.zeros(Nt + 1)  # Mesh function
+
+    # Calculate mesh function using difference equation
+    # (uⁿ⁺¹ - uⁿ) / (t{n+1} - tn) = -a (θ uⁿ⁺¹ + (1 - θ) uⁿ)
+    u[0] = I
+    for n in range(Nt):
+        u[n + 1] = (1 - (1 - theta) * a * dt) / \
+            (1 + theta * a * dt) * u[n] + \
+            (b * dt) / (1 + theta * a * dt)
+    return u
