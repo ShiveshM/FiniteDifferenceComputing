@@ -287,7 +287,7 @@ def convergence() -> None:
 
     T = 6
     I = u_exact(0)
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
@@ -538,17 +538,17 @@ def bdf2() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -636,18 +636,18 @@ def leapfrog() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     gamma = 0.6
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -738,17 +738,17 @@ def rk2() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -814,20 +814,20 @@ def taylor_series() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     f = lambda u, n: -a * u[n]
     dfdu = lambda u, n: -a
     dfdt = lambda u, n: 0
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -899,18 +899,18 @@ def adams_bashforth() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     f = lambda u, n: -a * u[n]
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -1043,18 +1043,18 @@ def rk4() -> List[List[float]]:
 
     Returns
     ----------
-    solutions: Numerical solutions for 8 Δt values.
+    solutions: Numerical solutions for 6 Δt values.
 
     """
     # Definitions
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     f = lambda u, n: -a * u[n]
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
     print(STR_FMT.format('dt_values', f'{dt_values}'))
 
     solutions = []
@@ -1111,19 +1111,19 @@ def compare_schemes() -> None:
     # Solving f(t) = u'(t) = -a * u(t)
     I = 1
     T = 4
-    a = 3
+    a = 1
     f = lambda u, n: -a * u[n]
     u_exact = lambda t: np.exp(-a * t)
 
-    dt_values = [0.1 * 2**(-i) for i in range(8)]
+    dt_values = [1 * 2**(-i) for i in range(6)]
 
-    fig = plt.figure(figsize=(24, 10))
+    fig = plt.figure(figsize=(18, 10))
     fig.suptitle(
-        r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$', y=0.95
+        r'$\frac{du(t)}{dt}=-u(t)$', y=0.95
     )
 
     axs = []
-    gs = gridspec.GridSpec(2, 4)
+    gs = gridspec.GridSpec(2, 3)
     gs.update(hspace=0.3, wspace=0.3)
     for sc_idx, scheme in enumerate(schemes):
         # Get solution
@@ -1165,7 +1165,8 @@ def compare_schemes() -> None:
 
             # Plot
             p = ax1.plot(t, solutions[dt_idx], ls='-', label=scheme)
-            ax1.legend()
+            if dt_idx == len(dt_values) - 1:
+                ax1.legend()
 
             # Calculate exact solution
             u_e = u_exact(t)

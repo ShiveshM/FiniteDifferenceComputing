@@ -102,6 +102,7 @@ def scaling() -> None:
     ylims = (0, 40)
     y_exact = lambda x: np.exp(x * lamda) * I + \
         ((-1 + np.exp(x * lamda)) * alpha) / lamda
+    u_exact = lambda I, t: I * np.exp(t)
 
     # Scaling
     #                  ỹ = (y + yᵐ) / yᶜ,      𝐱 = x / xᶜ
@@ -111,26 +112,32 @@ def scaling() -> None:
     #
     #                        y(x) = (ỹ(λ x) - β) * I
     beta = alpha / (I * lamda)
+    ulims = list(map(lambda x: (x / I) + beta, ylims))
 
     th_dict = {0: ('Forward Euler', 'fe', 'r-s'),
                1: ('Backward Euler', 'be', 'g-v'),
                0.5: ('Crank-Nicolson', 'cn', 'b-^')}
 
     fig1 = plt.figure(figsize=(14, 10))
+    fig3 = plt.figure(figsize=(14, 10))
     fig1.suptitle(
-        r'$\frac{du(t)}{dt}=a\cdot u(t)\:{\rm where}\:a>0$', y=0.95
+        r'$\frac{dy(x)}{dx}=\lambda y(x)+\alpha\:{\rm where}\:\lambda=' +
+        f'{lamda:g}' + r',\alpha=' + f'{alpha:g}' + r'$', y=0.95
+    )
+    fig3.suptitle(
+        r'$\frac{du(t)}{dt}=u(t)\:{\rm where}\:\beta=' +
+        f'{beta:g}' + r'$', y=0.95
     )
 
     axs1 = []
-    gs = gridspec.GridSpec(2, 2)
-    gs.update(hspace=0.2, wspace=0.2)
+    axs3 = []
+    gs1 = gridspec.GridSpec(2, 2)
+    gs3 = gridspec.GridSpec(2, 2)
+    gs1.update(hspace=0.2, wspace=0.2)
+    gs3.update(hspace=0.2, wspace=0.2)
     for th_idx, th in enumerate(th_dict):
         fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
-        )
-        fig1.suptitle(
-            r'$\frac{dy(x)}{dx}=\lambda y(x)+\alpha\:{\rm where}\:\lambda=' +
-            f'{lamda:g}' + r',\alpha=' + f'{alpha:g}' + r'$', y=0.95
         )
         for dx_idx, dx in enumerate((1.5, 1.25, 0.75, 0.1)):
             # Calculate mesh points
@@ -140,19 +147,26 @@ def scaling() -> None:
             # Calculate scaled mesh points
             T = lamda * X
             t = lamda * x
+            dt = lamda * dx
 
             if th_idx == 0:
-                gssub = gs[dx_idx].subgridspec(
+                gssub1 = gs1[dx_idx].subgridspec(
                     2, 1, height_ratios=(2, 1), hspace=0
                 )
-                ax1 = fig1.add_subplot(gssub[0])
-                ax2 = fig1.add_subplot(gssub[1])
+                ax1 = fig1.add_subplot(gssub1[0])
+                ax2 = fig1.add_subplot(gssub1[1])
+                gssub2 = gs3[dx_idx].subgridspec(
+                    2, 1, height_ratios=(2, 1), hspace=0
+                )
                 axs1.append([ax1, ax2])
+                ax3 = fig3.add_subplot(gssub2[0])
+                ax4 = fig3.add_subplot(gssub2[1])
+                axs3.append([ax3, ax4])
 
                 ax1.set_title('$\Delta x={:g}$'.format(dx))
                 ax1.set_ylim(*ylims)
                 ax1.set_xlim(0, X)
-                ax1.set_ylabel('u')
+                ax1.set_ylabel('y(x)')
                 ax1.set_xticks([])
                 ax1.set_yticks(ax1.get_yticks()[1:])
 
@@ -162,14 +176,31 @@ def scaling() -> None:
                 ax2.set_xlabel('x')
                 ax2.set_ylabel('log err')
 
+                ax3.set_title('$\Delta t={:g}$'.format(dt))
+                ax3.set_ylim(*ulims)
+                ax3.set_xlim(0, T)
+                ax3.set_ylabel('u(t)')
+                ax3.set_xticks([])
+                ax3.set_yticks(ax3.get_yticks()[1:])
+
+                ax4.grid(c='k', ls='--', alpha=0.3)
+                ax4.set_yscale('log')
+                ax4.set_xlim(0, T)
+                ax4.set_xlabel('t')
+                ax4.set_ylabel('log err')
+
                 # Calculate exact solution
                 x_e = np.linspace(0, X, 1001)
                 y_e = y_exact(x_e)
+                t_e = np.linspace(0, T, 1001)
+                u_e = u_exact(1 + beta, t_e)
 
                 # Plot with black line
                 ax1.plot(x_e, y_e, 'k-', label='exact')
+                ax3.plot(t_e, u_e, 'k-', label='exact')
 
             ax1, ax2 = axs1[dx_idx]
+            ax3, ax4 = axs3[dx_idx]
 
             ax = axs2.flat[dx_idx]
             ax.set_title('{}, dx={:g}'.format(th_dict[th][0], dx))
@@ -186,17 +217,22 @@ def scaling() -> None:
 
             # Calculate exact solution
             y_e = y_exact(x)
+            u_e = u_exact(1 + beta, t)
 
             # Plot
             ax.plot(x, y, 'r--o', label='numerical')
             ax1.plot(x, y, th_dict[th][2], label=th_dict[th][0])
             ax1.legend()
+            ax3.plot(t, u, th_dict[th][2], label=th_dict[th][0])
+            ax3.legend()
 
             # Plot exact solution
             ax.plot(x, y_e, 'b-', label='exact')
             ax.legend()
             err = np.abs(y_e - y)
             ax2.plot(x, err, th_dict[th][2])
+            err = np.abs(u_e - u)
+            ax4.plot(t, err, th_dict[th][2])
 
         # Save figure
         fig2.savefig(
@@ -207,6 +243,9 @@ def scaling() -> None:
     # Save figure
     fig1.savefig(
         IMGDIR + f'comparison.png', bbox_inches='tight'
+    )
+    fig3.savefig(
+        IMGDIR + f'comparison_scaled.png', bbox_inches='tight'
     )
 
 

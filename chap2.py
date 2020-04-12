@@ -74,7 +74,7 @@ def investigations() -> None:
 
     axs1 = []
     gs = gridspec.GridSpec(2, 2)
-    gs.update(hspace=0.3, wspace=0.3)
+    gs.update(hspace=0.2, wspace=0.2)
     for th_idx, th in enumerate(th_dict):
         fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
@@ -317,7 +317,7 @@ def visual_accuracy() -> None:
     xlims = (0, 3)
     ylims = (-2, 1)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
     ax.set_xlabel('$p=a\Delta t$')
     ax.set_ylabel(r'Amplification factor = $\frac{1-p(1-\theta)}{1+p\theta}$')
@@ -1071,7 +1071,7 @@ def exponential_growth() -> None:
 
     axs1 = []
     gs = gridspec.GridSpec(2, 2)
-    gs.update(hspace=0.3, wspace=0.3)
+    gs.update(hspace=0.2, wspace=0.2)
     for th_idx, th in enumerate(th_dict):
         fig2, axs2 = plt.subplots(
             2, 2, figsize=(10, 8), gridspec_kw={'hspace': 0.3}
@@ -1164,7 +1164,7 @@ def exponential_growth() -> None:
     xlims = (-3, 3)
     ylims = (-2, 5)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_title(r'$\frac{du(t)}{dt}=a\cdot u(t)$')
     ax.set_xlabel('$p=a\Delta t$')
     ax.set_ylabel(r'Amplification factor = $\frac{1+p(1-\theta)}{1-p\theta}$')

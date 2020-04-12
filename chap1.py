@@ -368,13 +368,13 @@ def crank_nicolson() -> None:
     f(t{n+1}) ≈ f(tn + ½Δt) + f'(tn + ½Δt)½Δt + ½f''(tn + ½Δt)(½Δt)² +
                 ⅙f'''(tn + ½Δt)(½Δt)³ + ... + (1 / m!) dᵐf/dtᵐ(tn + ½Δt)(½Δt)ᵐ
 
-    Subtracting the first from the second givesΔt)²
+    Subtracting the first from the second gives
 
     f(t{n+1}) - f(tn) ≈ f'(tn + ½Δt)Δt + ⅓f'''(tn + ½Δt)(½Δt)³ + ...
 
     Solving with respect to f'(tn + ½Δt) results in
 
-    f'(tn + ½Δt) ≈ (f(t{n+1}) - f(tn)) / Δt - (1/24)f''(tn + ½Δt)Δt² + ...
+    f'(tn + ½Δt) ≈ (f(t{n+1}) - f(tn)) / Δt - (1/24)f'''(tn + ½Δt)Δt² + ...
 
     The error measure goes like O(Δt²), which means the error here goes faster
     to zero compared to the forward and backward differences for small Δt.
@@ -477,7 +477,7 @@ def unifying() -> None:
     compared to the values θ = 0, 1, ½. As before, uⁿ is considered known and
     uⁿ⁺¹ unknown, so we solve for the latter:
 
-          uⁿ⁺¹ = (1 - (1 - θ) a (t{n+1} - tn)) / (1 + θ a (t{n+1} - tn)
+          uⁿ⁺¹ = (1 - (1 - θ) a (t{n+1} - tn)) / (1 + θ a (t{n+1} - tn))
 
     This is known as the θ-rule, or alternatively written as the "theta-rule".
 
