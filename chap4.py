@@ -14,8 +14,6 @@ import numpy as np
 import matplotlib.gridspec as gridspec
 from matplotlib import pyplot as plt
 
-from utils.solver import compute_rates
-
 
 __all__ = ['scaling']
 
@@ -273,4 +271,3 @@ main.__doc__ = __doc__
 
 if __name__ == "__main__":
     main()
-

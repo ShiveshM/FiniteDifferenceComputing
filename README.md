@@ -11,6 +11,8 @@ Notes from Langtangen's "Finite Difference Computing with Exponential Decay Mode
     * The Crank-Nicolson scheme
     * The unifying / theta-rule
     * Numerical Error
+    * Differentiate
+    * Integrate
 2. **Analysis**
     * Experimental investigations
     * Stability

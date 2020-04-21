@@ -9,12 +9,14 @@ Problem formulation: Using finite difference methods find u(t) such that:
 
 """
 
+import math
+
 import numpy as np
 from matplotlib import pyplot as plt
 
 
 __all__ = ['forward_euler', 'backward_euler', 'crank_nicolson', 'unifying',
-           'numerical_error', 'differentiate']
+           'numerical_error', 'differentiate', 'integrate']
 
 IMGDIR = './img/chap1/'
 """Path to store images."""
@@ -580,7 +582,7 @@ def numerical_error() -> None:
                               E = √(Δt ∑₀ᴺᵗ (eⁿ)²)
 
     """
-    from utils.solver import solver
+    from utils.solver import solver_chap2 as solver
 
     I = 1
     a = 2
@@ -589,7 +591,7 @@ def numerical_error() -> None:
     th_dict = {0: ('Forward Euler', 'fe'), 1: ('Backward Euler', 'be'),
                0.5: ('Crank-Nicolson', 'cn')}
 
-    for th in th_dict.keys():
+    for th in th_dict:
         print('theta = {:g}'.format(th))
         print('dt     error')
 
@@ -670,6 +672,45 @@ def differentiate() -> None:
     print('t     d       exact')
     for idx in range(Nt + 1):
         print('{0:4.2f} {1:6.4f} {2:6.4f}'.format(mp[idx], d[idx], d_e[idx]))
+
+
+def integrate() -> None:
+    """
+    Integrate a function.
+
+    Notes
+    ----------
+    Given a function u(t), a discrete integral can be approximated based on the
+    midpoint rule:
+
+                      ∫ₐᵇ u(t) dt ≈ ∑ⁿ u(½(t{n-1} + tn)) Δt
+
+    """
+    # Define function and boundaries
+    f = lambda t: np.exp(-t ** 2)
+    ranges = (0, 3)
+
+    # Compute exact value
+    i_f = lambda t: (1/2) * math.sqrt(math.pi) * math.erf(t)
+    i_e = i_f(ranges[1]) - i_f(ranges[0])
+
+    print('dt     i       exact')
+    for dt in [2, 1.5, 1, 0.5, 0.1]:
+        # Define mesh points
+        Nt = int(np.diff(ranges)[0] / dt)
+        mesh = np.linspace(*ranges, Nt + 1)
+        mdt = np.diff(mesh)[0]
+
+        # Calculate midpoints
+        mp = (mesh[1:] + mesh[:-1]) / 2
+
+        # Compute mesh function at midpoints
+        u = f(mp)
+
+        # Approximate integral
+        i = np.sum(u) * mdt
+
+        print('{0:4.2f} {1:8.6f} {2:8.6f}'.format(dt, i, i_e))
 
 
 def main() -> None:

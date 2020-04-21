@@ -91,7 +91,7 @@ def investigations() -> None:
                 ax2 = fig1.add_subplot(gssub[1])
                 axs1.append([ax1, ax2])
 
-                ax1.set_title('$\Delta t={:g}$'.format(dt))
+                ax1.set_title(r'$\Delta t={:g}$'.format(dt))
                 ax1.set_ylim(0, 1)
                 ax1.set_xlim(0, T)
                 ax1.set_ylabel('u')
@@ -319,7 +319,7 @@ def visual_accuracy() -> None:
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
-    ax.set_xlabel('$p=a\Delta t$')
+    ax.set_xlabel(r'$p=a\Delta t$')
     ax.set_ylabel(r'Amplification factor = $\frac{1-p(1-\theta)}{1+p\theta}$')
     ax.set_xlim(0, 3)
     ax.set_ylim(-2, 1)
@@ -364,7 +364,7 @@ def visual_accuracy() -> None:
     # Setup figure
     fig, ax = plt.subplots()
     ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)$')
-    ax.set_xlabel('$p=a\Delta t$')
+    ax.set_xlabel(r'$p=a\Delta t$')
     ax.set_ylabel('E, error fraction')
     ax.set_xlim(1E-6, 1)
     ax.set_ylim(0.8, 1.2)
@@ -1298,7 +1298,7 @@ def exponential_growth() -> None:
     # Setup figure
     fig, ax = plt.subplots()
     ax.set_title(r'$\frac{du(t)}{dt}=-a\cdot u(t)\:{\rm where}\:a<0$')
-    ax.set_xlabel('$p=-a\Delta t$')
+    ax.set_xlabel(r'$p=-a\Delta t$')
     ax.set_ylabel('E, error fraction')
     ax.set_xlim(1E-6, 1)
     ax.set_ylim(0.8, 1.2)
